@@ -37,7 +37,7 @@ download() {
 }
 
 listfile=""
-outdir="."
+outdir="database"
 cif=false
 pdb=false
 pdb1=false
