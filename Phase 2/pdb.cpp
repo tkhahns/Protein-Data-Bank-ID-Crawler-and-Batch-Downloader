@@ -25,4 +25,8 @@ namespace pdb {
         this->id = id;
         this->name = name;
     }
+
+    void protein::add_chain_structures(string protein_string, vector<string> chains) {
+        
+    }
 }

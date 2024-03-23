@@ -1,8 +1,6 @@
 #ifndef PDB_HPP
 #define PDB_HPP
 
-#include <cstdio>
-#include <iostream>
 #include <map>
 #include <vector>
 
@@ -70,13 +68,16 @@ namespace pdb {
             vector<ChainType> chains;
             vector<string> chain_structures;
             vector<string> helix_structures;
-            int length1;
-            int length2;
-            int length3;
-            int angle12;
-            int angle23;
-            int angle31;
-            string crystal_type;
+            int protein_atoms;
+            int nucleic_acid_atoms;
+            int length_a;
+            int length_b;
+            int length_c;
+            int alpha;
+            int beta;
+            int gamma;
+            string space_group;
+            int z_value;
 
         public:
             protein(string, string);
