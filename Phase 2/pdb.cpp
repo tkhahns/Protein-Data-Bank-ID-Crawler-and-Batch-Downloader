@@ -1,7 +1,12 @@
 #include "pdb.hpp"
 #include <sstream>
+#include <iostream>
+#include <gemmi/cif.hpp>
+
+namespace cif = gemmi::cif;
 
 namespace pdb {
+    /*
     char convert_amino_3to1(string amino) {
         if (auto search = amino3to1.find(amino); search != amino3to1.end())
             return amino3to1[amino];
@@ -25,8 +30,12 @@ namespace pdb {
         this->id = id;
         this->name = name;
     }
+    */
 
-    void protein::add_chain_structures(string protein_string, vector<string> chains) {
-        
+    int main() {
+        cif::Document doc = cif::read_file("./1bwh.cif");
+        for (cif::Block& block : doc.blocks) {
+            cout << *(block.find_value("_entry.id")) << endl;
+        }
     }
 }

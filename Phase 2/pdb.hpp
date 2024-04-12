@@ -1,5 +1,5 @@
-#ifndef PDB_HPP
-#define PDB_HPP
+#ifndef MY_PDB_HPP
+#define MY_PDB_HPP
 
 #include <map>
 #include <vector>

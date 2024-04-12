@@ -1,7 +1,18 @@
 #include "pdb.hpp"
 #include "extract.hpp"
+#include <gemmi/pdb.hpp>
+#include <gemmi/gz.hpp>
 
 namespace pdb {
+    void print_relevant_info(string& path) {
+        gemmi::Structure protein = gemmi::read_pdb(gemmi::MaybeGzipped(path));
+        cout << protein.name << endl;
+        cout << protein.models[0].name << endl;
+        for (gemmi::Chain chain : protein.models[0].chains)
+            cout << chain.name << endl;
+        
+    }
+
     string record_search(ifstream& fin, regex& record_type) {
         string line_in;
         while (getline(fin, line_in)) {

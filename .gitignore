@@ -4,3 +4,5 @@ node_modules
 database
 *.ent*
 Format_v33_A4.pdf
+*.cif*
+lib
