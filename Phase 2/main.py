@@ -1,90 +1,21 @@
-import gemmi
-from gemmi import cif
 import sqlite3
-path = "1bwh.cif"
-path2 = "7xog.cif"
+import os
+import re
+import extract
+import attr
 database = "./database/pdb_database.db"
-main_table = "main"
-entity_table = "entities"
-chain_table = "chains"
-helix_table = "helices"
-
-three_to_one = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N',
-                'ASP': 'D', 'CYS': 'C', 'GLN': 'Q',
-                'GLU': 'E', 'GLY': 'G', 'HIS': 'H',
-                'ILE': 'I', 'LEU': 'L', 'LYS': 'K',
-                'MET': 'M', 'PHE': 'F', 'PRO': 'P',
-                'SER': 'S', 'THR': 'T', 'TRP': 'W',
-                'TYR': 'Y', 'VAL': 'V'}
-
-def letter_code_3to1(polymer: str) -> str:
-    if (polymer in three_to_one.keys()):
-        return three_to_one[polymer]
-    return '?'
-
-def sequence_3to1(sequence: list[str], start: int = 0, end: int = -1) -> str:
-    return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end]])
-
-def insert_into_main_table(doc, struct, cur):
-    id = struct.info["_entry.id"]
-    block = doc.sole_block()
-    proteins = block.find_value("_refine_hist.pdbx_number_atoms_protein")
-    acids = block.find_value("_refine_hist.pdbx_number_atoms_nucleic_acid")
-    cell = struct.cell
-    z_value = None
-    if "_cell.Z_PDB" in struct.info:
-        z_value = struct.info["_cell.Z_PDB"]
-    spacegroup = struct.spacegroup_hm
-    cur.execute("INSERT INTO " + main_table + " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (id, proteins, acids, spacegroup, z_value,
-                cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma))
-        
-def insert_into_entity_table(doc, struct, cur):
-    id = struct.info["_entry.id"]
-    block = doc.sole_block()
-    names = block.find_loop("_entity.pdbx_description")
-    if names is None:
-        name = block.find_value("_entity.pdbx_description")
-        names = [name]
-    for index, entity in enumerate(struct.entities):
-        cur.execute("INSERT INTO " + entity_table + " VALUES(?, ?, ?, ?, ?)",
-                    (id, names[index], str(entity.entity_type),
-                    ' '.join(entity.subchains), sequence_3to1(entity.full_sequence)))
-        
-def insert_into_chain_table(struct, cur):
-    id = struct.info["_entry.id"]
-    for chain in struct[0]:
-        sequence = sequence_3to1(chain.whole().extract_sequence())
-        cur.execute("INSERT INTO " + chain_table + " VALUES(?, ?, ?)",
-                    (id, chain.name, sequence))
-        
-def insert_into_helix_table(struct, cur):
-    id = struct.info["_entry.id"]
-    for helix in struct.helices:
-        chain = struct[0].find_cra(helix.start).chain
-        sequence = sequence_3to1(chain.whole().extract_sequence(),
-                                 helix.start.res_id.seqid.num - 1, helix.end.res_id.seqid.num)
-        cur.execute("INSERT INTO " + helix_table + " VALUES(?, ?, ?)",
-                    (id, chain.name, sequence))
-        
-def insert_into_all_tables(path):
-    struct = gemmi.read_structure(path)
-    doc = cif.read_file(path)
-    insert_into_main_table(doc, struct, cur)
-    insert_into_entity_table(doc, struct, cur)
-    insert_into_chain_table(struct, cur)
-    insert_into_helix_table(struct, cur)
+rootdir = "./database"
 
 def init(cur):
-    cur.execute("CREATE TABLE IF NOT EXISTS " + main_table + "(id VARCHAR(5),\
+    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.main_table + "(id VARCHAR(5),\
                 protein_atoms_number INT, nucleic_acid_atoms_number INT,\
                 space_group VARCHAR(20), Z_value INT, a FLOAT, b FLOAT, c FLOAT,\
                 alpha FLOAT, beta FLOAT, gamma FLOAT)")
-    cur.execute("CREATE TABLE IF NOT EXISTS " + entity_table + "(id VARCHAR(5),\
+    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.entity_table + "(id VARCHAR(5),\
                 entity_name VARCHAR(50), entity_type VARCHAR(50), chains VARCHAR, full_sequence VARCHAR)")
-    cur.execute("CREATE TABLE IF NOT EXISTS " + chain_table + "(id VARCHAR(5),\
+    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.chain_table + "(id VARCHAR(5),\
                 chain_name VARCHAR(5), chain_sequence VARCHAR)")
-    cur.execute("CREATE TABLE IF NOT EXISTS " + helix_table + "(id VARCHAR(5),\
+    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.helix_table + "(id VARCHAR(5),\
                 chain_name VARCHAR(5), helix_sequence VARCHAR)")
 
 
@@ -92,8 +23,12 @@ if __name__ == "__main__":
     con = sqlite3.connect(database)
     cur = con.cursor()
     init(cur)
-    insert_into_all_tables(path)
-    insert_into_all_tables(path2)
+
+    for subdir, dirs, files in os.walk(rootdir):
+        for file in files:
+            path = os.path.join(subdir, file)
+            if re.search('.*\.cif.*', path):
+                extract.insert_into_all_tables(path, cur)
 
     con.commit()
     con.close()
