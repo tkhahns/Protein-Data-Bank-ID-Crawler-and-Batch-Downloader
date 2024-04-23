@@ -2,7 +2,7 @@ from enum import Enum
 
 main_table = "main"
 entity_table = "entities"
-chain_table = "chains"
+subchain_table = "subchains"
 helix_table = "helices"
 
 ComplexType = Enum('ComplexType', ['Other', 'SingleProtein',

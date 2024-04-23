@@ -7,20 +7,19 @@ database = "./records/pdb_database_records.db"
 rootdir = "./database"
 
 def init(cur):
-    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.main_table + "(id VARCHAR(5),\
+    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.main_table + "(entry_id VARCHAR(5),\
                 complex_type VARCHAR(25), contains_nonpolymer BOOL,\
-                contains_antibody BOOL, space_group VARCHAR(20),\
+                contains_antibody BOOL, chains VARCHAR, space_group VARCHAR(20),\
                 Z_value INT, a FLOAT, b FLOAT, c FLOAT,\
                 alpha FLOAT, beta FLOAT, gamma FLOAT)")
-    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.entity_table + "(id VARCHAR(5),\
-                entity_name VARCHAR(200), entity_type VARCHAR(25), polymer_type VARCHAR(25),\
-                chains VARCHAR, full_sequence VARCHAR, length INT)")
-    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.chain_table +
-                "(id VARCHAR(5), entity_name VARCHAR(200), chain_name VARCHAR(5),\
-                chain_sequence VARCHAR, length INT)")
+    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.entity_table + "(entry_id VARCHAR(5),\
+                entity_id VARCHAR(5), entity_name VARCHAR(200), entity_type VARCHAR(25),\
+                polymer_type VARCHAR(25), subchains VARCHAR)")
+    cur.execute("CREATE TABLE IF NOT EXISTS " + attr.subchain_table +
+                "(entry_id VARCHAR(5), entity_id VARCHAR(5), subchain_name VARCHAR(5),\
+                parent_chain_name VARCHAR(5), chain_sequence VARCHAR, length INT)")
     cur.execute("CREATE TABLE IF NOT EXISTS " + attr.helix_table +
-                "(id VARCHAR(5), entity_name VARCHAR(200), chain_name VARCHAR(5),\
-                helix_sequence VARCHAR, length INT)")
+                "(entry_id VARCHAR(5), chain VARCHAR(5), helix_sequence VARCHAR, length INT)")
 
 
 if __name__ == "__main__":
