@@ -1,5 +1,7 @@
 from enum import Enum
 
+# All the table schemas that get produced in the database.
+# First component is table name, second is all the attributes.
 main_table = ("main", "(entry_id VARCHAR(5), complex_type VARCHAR(25), chains VARCHAR, space_group VARCHAR(20),\
               Z_value INT, a FLOAT, b FLOAT, c FLOAT, alpha FLOAT, beta FLOAT, gamma FLOAT)")
 
@@ -21,6 +23,7 @@ strand_table = ("strands", "(entry_id VARCHAR(5), sheet_id VARCHAR(5),\
 
 table_schemas = [main_table, entity_table, subchain_table, chain_table, helix_table, sheet_table, strand_table]
 
+# Possible types of a complex, based on their entities
 ComplexType = Enum('ComplexType', ['Other', 'SingleProtein',
                  'NucleicAcid', 'ProteinNA', 'Saccharide',
                  'ProteinSaccharide', 'SaccharideNA', 'ProteinSaccharideNA',

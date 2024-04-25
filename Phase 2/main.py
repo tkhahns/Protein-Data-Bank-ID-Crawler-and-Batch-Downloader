@@ -3,8 +3,8 @@ import os
 import re
 import extract
 import attr
-database = "./records/pdb_database_records.db"
-rootdir = "./database"
+database = "./records/pdb_database_records.db" # Location of output SQL database
+rootdir = "./database" # Root directory of all the pdb files
 
 def init(cur):
     for table_schema in attr.table_schemas:

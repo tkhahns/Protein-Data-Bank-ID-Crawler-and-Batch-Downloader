@@ -4,6 +4,7 @@ import sqlite3
 import attr
 from attr import ComplexType
 
+# For converting amino acid residue three-letter code to one-letter code
 three_to_one = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N',
                 'ASP': 'D', 'CYS': 'C', 'GLN': 'Q',
                 'GLU': 'E', 'GLY': 'G', 'HIS': 'H',
@@ -20,11 +21,14 @@ def letter_code_3to1(polymer: str) -> str:
 def one_letter_sequence(sequence: list[str], start: int = 0, end: int = -1) -> str:
     return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end]])
 
-def sense_sequence(sheet: gemmi.Sheet):
+# For the beta sheets table. Produces a sequence of the series of
+# parallel and antiparallel bonds between strands
+def sense_sequence(sheet: gemmi.Sheet) -> str:
     encoding = {1: 'P', -1: 'A', 0: ''}
     return ''.join([encoding[strand.sense] for strand in sheet.strands])
 
-def get_complex_type(struct: gemmi.Structure):
+# Determines the type of complex of structure based on the types of its entities
+def get_complex_type(struct: gemmi.Structure) -> ComplexType:
     # We use bitwise operations to quickly get the complex type
 
     # these values are 0 if compound doesn't have
@@ -51,7 +55,7 @@ def get_complex_type(struct: gemmi.Structure):
                 has_peptide = 0b001
                 peptide_entity = entity
         
-        # regular integer addition gives the same result, but bitwise or makes the intention clearer
+    # regular integer addition gives the same result, but bitwise or makes the intention clearer
     pending_complex_type = ComplexType(has_peptide | has_nucleic_acid | has_saccharide)
 
     # Check if compound is actually a complex protein or proteinmer
@@ -63,7 +67,8 @@ def get_complex_type(struct: gemmi.Structure):
                 return ComplexType.Proteinmer
     
     return pending_complex_type
-    
+
+# Insert given data into the given table
 def insert_into_table(cur: sqlite3.Cursor, table_name: str, data):
     args = ', '.join(['?' for i in range(len(data))])
     query = f'INSERT INTO {table_name} VALUES({args})'
@@ -137,7 +142,8 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             length = strand.end.res_id.seqid.num - strand.start.res_id.seqid.num + 1
             data = (id, sheet.name, strand.name, chain.name, sequence, length)
             insert_into_table(cur, attr.strand_table[0], data)
-        
+
+# Inserts the data of a given file into all tables
 def insert_into_all_tables(path: str, cur: sqlite3.Cursor):
 
     insert_functions = [insert_into_main_table, insert_into_entity_table, insert_into_subchain_table,
@@ -146,7 +152,7 @@ def insert_into_all_tables(path: str, cur: sqlite3.Cursor):
     
     try:
         struct = gemmi.read_structure(path)
-        doc = cif.read_file(path)
+        doc = cif.read(path)
         for function in insert_functions:
             function(struct, doc, cur)
     except Exception as error:
