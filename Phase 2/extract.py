@@ -18,8 +18,21 @@ def letter_code_3to1(polymer: str) -> str:
         return three_to_one[polymer]
     return '?'
 
-def one_letter_sequence(sequence: list[str], start: int = 0, end: int = -1) -> str:
-    return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end]])
+# Extract a substring from the one-letter encoding of a given sequence of residues.
+# Start and end indices should be given in the one-indexed sequence address form, so
+# the first residue in the sequence has index 1, and the function returns the
+# substring from the start index to end index inclusive.
+# If the start index is greater than the end index, then the output sequence is
+# given in reverse of its input sequence.
+def one_letter_sequence(sequence: list[str], start: int = 1, end: int = -1) -> str:
+    if end == -1:
+        end = len(sequence)
+    start -= 1
+    if end > start:
+        return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end]])
+    if end == 1:
+        return ''.join([letter_code_3to1(polymer) for polymer in sequence[start::-1]])
+    return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end-2:-1]])
 
 # For the beta sheets table. Produces a sequence of the series of
 # parallel and antiparallel bonds between strands
@@ -76,6 +89,8 @@ def insert_into_table(cur: sqlite3.Cursor, table_name: str, data):
 
 def insert_into_main_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     id = struct.info["_entry.id"]
+    block = doc.sole_block()
+    source_org = block.find_value("_entity_src_gen.pdbx_gene_src_scientific_name")
     complex_type = get_complex_type(struct)
     chains = [chain.name for chain in struct[0]]
     cell = struct.cell
@@ -83,7 +98,7 @@ def insert_into_main_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     if "_cell.Z_PDB" in struct.info:
         z_value = struct.info["_cell.Z_PDB"]
     spacegroup = struct.spacegroup_hm
-    data = (id, complex_type.name, ' '.join(chains), spacegroup, z_value,
+    data = (id, complex_type.name, source_org, ' '.join(chains), spacegroup, z_value,
                  cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
     insert_into_table(cur, attr.main_table[0], data)
         
@@ -123,9 +138,12 @@ def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     id = struct.info["_entry.id"]
     for helix in struct.helices:
         chain = struct[0].find_cra(helix.start).chain
-        sequence = one_letter_sequence(chain.whole().extract_sequence(),
-                                       helix.start.res_id.seqid.num - 1, helix.end.res_id.seqid.num)
-        data = (id, chain.name, sequence, helix.length)
+        start_pos = helix.start.res_id.seqid.num
+        end_pos = helix.end.res_id.seqid.num
+        direction = 1 if start_pos <= end_pos else -1
+        length = end_pos - start_pos + direction
+        sequence = one_letter_sequence(chain.whole().extract_sequence(), start_pos, end_pos)
+        data = (id, chain.name, sequence, start_pos, end_pos, length)
         insert_into_table(cur, attr.helix_table[0], data)
         
 def insert_into_sheet_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
@@ -139,9 +157,11 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     for sheet in struct.sheets:
         for strand in sheet.strands:
             chain = struct[0].find_cra(strand.start).chain
-            sequence = one_letter_sequence(chain.whole().extract_sequence(),
-                                           strand.start.res_id.seqid.num - 1, strand.end.res_id.seqid.num)
-            length = strand.end.res_id.seqid.num - strand.start.res_id.seqid.num + 1
+            start_pos = strand.start.res_id.seqid.num
+            end_pos = strand.end.res_id.seqid.num
+            direction = 1 if start_pos <= end_pos else -1
+            length = end_pos - start_pos + direction
+            sequence = one_letter_sequence(chain.whole().extract_sequence(), start_pos, end_pos)
             data = (id, sheet.name, strand.name, chain.name, sequence, length)
             insert_into_table(cur, attr.strand_table[0], data)
 
@@ -156,7 +176,7 @@ def insert_into_all_tables(path: str, cur: sqlite3.Cursor):
         struct = gemmi.read_structure(path)
         doc = cif.read(path)
         res = cur.execute("SELECT entry_id FROM " + attr.main_table[0]\
-                          + " WHERE entry_id = " + struct.info["_entry.id"])
+                            + " WHERE entry_id = '" + struct.info["_entry.id"] + "'")
         if not res.fetchone(): # if there is no row in the main table with such entry ID
             for function in insert_functions:
                 function(struct, doc, cur)
