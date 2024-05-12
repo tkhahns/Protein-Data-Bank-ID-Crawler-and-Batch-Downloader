@@ -105,6 +105,8 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor
         if entity.polymer_type in [PolymerType.PeptideD, PolymerType.PeptideL]:
             for subchain_name in entity.subchains:
                 subchain = struct[0].get_subchain(subchain_name)
+                if len(subchain) == 0:
+                    continue
                 parent_chain = struct[0].get_parent_of(subchain[0]).name
                 data = (id, entity.name, subchain.subchain_id(), parent_chain,
                         subchain.make_one_letter_sequence(), subchain.length())
@@ -153,8 +155,11 @@ def insert_into_all_tables(path: str, cur: sqlite3.Cursor):
     try:
         struct = gemmi.read_structure(path)
         doc = cif.read(path)
-        for function in insert_functions:
-            function(struct, doc, cur)
+        res = cur.execute("SELECT entry_id FROM " + attr.main_table[0]\
+                          + " WHERE entry_id = " + struct.info["_entry.id"])
+        if not res.fetchone(): # if there is no row in the main table with such entry ID
+            for function in insert_functions:
+                function(struct, doc, cur)
     except Exception as error:
         print("Error at " + path)
         print(error)
