@@ -4,35 +4,31 @@ import sqlite3
 import attr
 from attr import ComplexType
 
-# For converting amino acid residue three-letter code to one-letter code
-three_to_one = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N',
-                'ASP': 'D', 'CYS': 'C', 'GLN': 'Q',
-                'GLU': 'E', 'GLY': 'G', 'HIS': 'H',
-                'ILE': 'I', 'LEU': 'L', 'LYS': 'K',
-                'MET': 'M', 'PHE': 'F', 'PRO': 'P',
-                'SER': 'S', 'THR': 'T', 'TRP': 'W',
-                'TYR': 'Y', 'VAL': 'V'}
-
-def letter_code_3to1(polymer: str) -> str:
-    if (polymer in three_to_one.keys()):
-        return three_to_one[polymer]
-    return '?'
-
 # Extract a substring from the one-letter encoding of a given sequence of residues.
 # Start and end indices should be given in the one-indexed sequence address form, so
 # the first residue in the sequence has index 1, and the function returns the
 # substring from the start index to end index inclusive.
 # If the start index is greater than the end index, then the output sequence is
 # given in reverse of its input sequence.
-def one_letter_sequence(sequence: list[str], start: int = 1, end: int = -1) -> str:
+#
+# This function is intended to work for peptide polymer residue spans only, and is highly
+# susceptible to errors for other types of spans.
+def one_letter_sequence(span: gemmi.ResidueSpan, start: int = -1, end: int = -1) -> str:
+    sequence = span.make_one_letter_sequence()
+    first_index = span[0].seqid.num
+    # if no values given for start and end, assign them to start and end of span
+    if start == -1:
+        start = first_index
     if end == -1:
-        end = len(sequence)
-    start -= 1
-    if end > start:
-        return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end]])
-    if end == 1:
-        return ''.join([letter_code_3to1(polymer) for polymer in sequence[start::-1]])
-    return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end-2:-1]])
+        end = len(span) + first_index
+    start -= first_index
+    end -= first_index
+
+    if end >= start:
+        return sequence[start:end + 1]
+    if end == 0:
+        return sequence[start::-1]
+    return sequence[start:end-1:-1]
 
 # For the beta sheets table. Produces a sequence of the series of
 # parallel and antiparallel bonds between strands
@@ -123,15 +119,19 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor
                 if len(subchain) == 0:
                     continue
                 parent_chain = struct[0].get_parent_of(subchain[0]).name
+                start_pos = subchain[0].seqid.num
+                end_pos = subchain[-1].seqid.num
                 data = (id, entity.name, subchain.subchain_id(), parent_chain,
-                        subchain.make_one_letter_sequence(), subchain.length())
+                        subchain.make_one_letter_sequence(), start_pos, end_pos, subchain.length())
                 insert_into_table(cur, attr.subchain_table[0], data)
 
 def insert_into_chain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     id = struct.info["_entry.id"]
     for chain in struct[0]:
+        start_pos = chain.whole()[0].seqid.num
+        end_pos = chain.whole()[-1].seqid.num
         data = (id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
-                one_letter_sequence(chain.whole().extract_sequence()), chain.whole().length())
+                one_letter_sequence(chain.whole()), start_pos, end_pos, chain.whole().length())
         insert_into_table(cur, attr.chain_table[0], data)
         
 def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
@@ -142,7 +142,7 @@ def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
         end_pos = helix.end.res_id.seqid.num
         direction = 1 if start_pos <= end_pos else -1
         length = end_pos - start_pos + direction
-        sequence = one_letter_sequence(chain.whole().extract_sequence(), start_pos, end_pos)
+        sequence = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
         data = (id, chain.name, sequence, start_pos, end_pos, length)
         insert_into_table(cur, attr.helix_table[0], data)
         
@@ -161,8 +161,8 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             end_pos = strand.end.res_id.seqid.num
             direction = 1 if start_pos <= end_pos else -1
             length = end_pos - start_pos + direction
-            sequence = one_letter_sequence(chain.whole().extract_sequence(), start_pos, end_pos)
-            data = (id, sheet.name, strand.name, chain.name, sequence, length)
+            sequence = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
+            data = (id, sheet.name, strand.name, chain.name, sequence, start_pos, end_pos, length)
             insert_into_table(cur, attr.strand_table[0], data)
 
 # Inserts the data of a given file into all tables

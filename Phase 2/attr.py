@@ -9,18 +9,18 @@ entity_table = ("entities", "(entry_id VARCHAR(5), entity_id VARCHAR(5), entity_
                 entity_type VARCHAR(25), polymer_type VARCHAR(25), subchains VARCHAR)")
 
 subchain_table = ("subchains", "(entry_id VARCHAR(5), entity_id VARCHAR(5), subchain_id VARCHAR(5),\
-                  chain_id VARCHAR(5), chain_sequence VARCHAR, length INT)")
+                  chain_id VARCHAR(5), chain_sequence VARCHAR, start_position INT, end_position INT, length INT)")
 
 chain_table = ("chains", "(entry_id VARCHAR(5), chain_id VARCHAR(5), subchains VARCHAR,\
-               chain_sequence VARCHAR, length INT)")
+               chain_sequence VARCHAR, start_position INT, end_position INT, length INT)")
 
 helix_table = ("helices", "(entry_id VARCHAR(5), chain_id VARCHAR(5), helix_sequence VARCHAR, start_position INT,\
                end_position INT, length INT)")
 
 sheet_table = ("sheets", "(entry_id VARCHAR(5), sheet_id VARCHAR(5), number_strands INT, sense_sequence VARCHAR)")
 
-strand_table = ("strands", "(entry_id VARCHAR(5), sheet_id VARCHAR(5),\
-                strand_id VARCHAR(5), chain_id VARCHAR(5), strand_sequence VARCHAR, length INT)")
+strand_table = ("strands", "(entry_id VARCHAR(5), sheet_id VARCHAR(5), strand_id VARCHAR(5), chain_id VARCHAR(5),\
+                strand_sequence VARCHAR, start_position INT, end_position INT, length INT)")
 
 table_schemas = [main_table, entity_table, subchain_table, chain_table, helix_table, sheet_table, strand_table]
 
