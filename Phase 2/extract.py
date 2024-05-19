@@ -13,14 +13,17 @@ from attr import ComplexType
 #
 # This function is intended to work for peptide polymer residue spans only, and is highly
 # susceptible to errors for other types of spans.
-def one_letter_sequence(span: gemmi.ResidueSpan, start: int = -1, end: int = -1) -> str:
-    sequence = span.make_one_letter_sequence()
-    first_index = span[0].seqid.num
+def one_letter_sequence(chain: gemmi.Chain, start: int = -1, end: int = -1) -> str:
+    sequence = chain.whole().make_one_letter_sequence()
+    first_auth_index = chain[0].seqid
+    first_index = chain[str(first_auth_index)].auth_seq_id_to_label(first_auth_index)
+    last_auth_index = chain[-1].seqid
+    last_index = chain[str(last_auth_index)].auth_seq_id_to_label(last_auth_index)
     # if no values given for start and end, assign them to start and end of span
     if start == -1:
         start = first_index
     if end == -1:
-        end = len(span) + first_index
+        end = last_index
     start -= first_index
     end -= first_index
 
@@ -118,31 +121,37 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor
                 subchain = struct[0].get_subchain(subchain_name)
                 if len(subchain) == 0:
                     continue
-                parent_chain = struct[0].get_parent_of(subchain[0]).name
-                start_pos = subchain[0].seqid.num
-                end_pos = subchain[-1].seqid.num
-                data = (id, entity.name, subchain.subchain_id(), parent_chain,
+                parent_chain = struct[0].get_parent_of(subchain[0])
+                start_auth_pos = subchain[0].seqid
+                end_auth_pos = subchain[-1].seqid
+                start_pos = parent_chain.whole()[str(start_auth_pos)].auth_seq_id_to_label(start_auth_pos)
+                end_pos = parent_chain.whole()[str(end_auth_pos)].auth_seq_id_to_label(end_auth_pos)
+                data = (id, entity.name, subchain.subchain_id(), parent_chain.name,
                         subchain.make_one_letter_sequence(), start_pos, end_pos, subchain.length())
                 insert_into_table(cur, attr.subchain_table[0], data)
 
 def insert_into_chain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     id = struct.info["_entry.id"]
     for chain in struct[0]:
-        start_pos = chain.whole()[0].seqid.num
-        end_pos = chain.whole()[-1].seqid.num
+        start_auth_pos = chain.whole()[0].seqid
+        end_auth_pos = chain.whole()[-1].seqid
+        start_pos = chain.whole()[str(start_auth_pos)].auth_seq_id_to_label(start_auth_pos)
+        end_pos = chain.whole()[str(end_auth_pos)].auth_seq_id_to_label(end_auth_pos)
         data = (id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
-                one_letter_sequence(chain.whole()), start_pos, end_pos, chain.whole().length())
+                chain.whole().make_one_letter_sequence(), start_pos, end_pos, chain.whole().length())
         insert_into_table(cur, attr.chain_table[0], data)
         
 def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     id = struct.info["_entry.id"]
     for helix in struct.helices:
         chain = struct[0].find_cra(helix.start).chain
-        start_pos = helix.start.res_id.seqid.num
-        end_pos = helix.end.res_id.seqid.num
+        start_auth_pos = helix.start.res_id.seqid
+        end_auth_pos = helix.end.res_id.seqid
+        start_pos = chain.whole()[str(start_auth_pos)].auth_seq_id_to_label(start_auth_pos)
+        end_pos = chain.whole()[str(end_auth_pos)].auth_seq_id_to_label(end_auth_pos)
         direction = 1 if start_pos <= end_pos else -1
         length = end_pos - start_pos + direction
-        sequence = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
+        sequence = one_letter_sequence(chain, start_pos, end_pos)
         data = (id, chain.name, sequence, start_pos, end_pos, length)
         insert_into_table(cur, attr.helix_table[0], data)
         
@@ -157,11 +166,13 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     for sheet in struct.sheets:
         for strand in sheet.strands:
             chain = struct[0].find_cra(strand.start).chain
-            start_pos = strand.start.res_id.seqid.num
-            end_pos = strand.end.res_id.seqid.num
+            start_auth_pos = strand.start.res_id.seqid
+            end_auth_pos = strand.end.res_id.seqid
+            start_pos = chain.whole()[str(start_auth_pos)].auth_seq_id_to_label(start_auth_pos)
+            end_pos = chain.whole()[str(end_auth_pos)].auth_seq_id_to_label(end_auth_pos)
             direction = 1 if start_pos <= end_pos else -1
             length = end_pos - start_pos + direction
-            sequence = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
+            sequence = one_letter_sequence(chain, start_pos, end_pos)
             data = (id, sheet.name, strand.name, chain.name, sequence, start_pos, end_pos, length)
             insert_into_table(cur, attr.strand_table[0], data)
 
