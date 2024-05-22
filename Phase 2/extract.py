@@ -135,8 +135,8 @@ def insert_into_chain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     for chain in struct[0]:
         start_auth_pos = chain.whole()[0].seqid
         end_auth_pos = chain.whole()[-1].seqid
-        start_pos = chain.whole()[str(start_auth_pos)].auth_seq_id_to_label(start_auth_pos)
-        end_pos = chain.whole()[str(end_auth_pos)].auth_seq_id_to_label(end_auth_pos)
+        start_pos = chain.whole().auth_seq_id_to_label(start_auth_pos)
+        end_pos = chain.whole().auth_seq_id_to_label(end_auth_pos)
         data = (id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
                 chain.whole().make_one_letter_sequence(), start_pos, end_pos, chain.whole().length())
         insert_into_table(cur, attr.chain_table[0], data)
@@ -145,14 +145,24 @@ def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
     id = struct.info["_entry.id"]
     for helix in struct.helices:
         chain = struct[0].find_cra(helix.start).chain
+        end_chain = struct[0].find_cra(helix.end).chain
         start_auth_pos = helix.start.res_id.seqid
         end_auth_pos = helix.end.res_id.seqid
-        start_pos = chain.whole()[str(start_auth_pos)].auth_seq_id_to_label(start_auth_pos)
-        end_pos = chain.whole()[str(end_auth_pos)].auth_seq_id_to_label(end_auth_pos)
-        direction = 1 if start_pos <= end_pos else -1
-        length = end_pos - start_pos + direction
-        sequence = one_letter_sequence(chain, start_pos, end_pos)
-        data = (id, chain.name, sequence, start_pos, end_pos, length)
+
+        if (chain != end_chain):
+            start_pos = chain.whole().auth_seq_id_to_label(start_auth_pos)
+            end_pos = end_chain.whole().auth_seq_id_to_label(end_auth_pos)
+            length = helix.length
+            sequence = "MULTIPLE CHAINS ERROR"
+            data = (id, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, length)
+        else:
+            start_pos = chain.whole().auth_seq_id_to_label(start_auth_pos)
+            end_pos = chain.whole().auth_seq_id_to_label(end_auth_pos)
+            direction = 1 if start_pos <= end_pos else -1
+            length = end_pos - start_pos + direction
+            sequence = one_letter_sequence(chain, start_pos, end_pos)
+            data = (id, chain.name, sequence, start_pos, end_pos, length)
+
         insert_into_table(cur, attr.helix_table[0], data)
         
 def insert_into_sheet_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
@@ -168,8 +178,8 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             chain = struct[0].find_cra(strand.start).chain
             start_auth_pos = strand.start.res_id.seqid
             end_auth_pos = strand.end.res_id.seqid
-            start_pos = chain.whole()[str(start_auth_pos)].auth_seq_id_to_label(start_auth_pos)
-            end_pos = chain.whole()[str(end_auth_pos)].auth_seq_id_to_label(end_auth_pos)
+            start_pos = chain.whole().auth_seq_id_to_label(start_auth_pos)
+            end_pos = chain.whole().auth_seq_id_to_label(end_auth_pos)
             direction = 1 if start_pos <= end_pos else -1
             length = end_pos - start_pos + direction
             sequence = one_letter_sequence(chain, start_pos, end_pos)
