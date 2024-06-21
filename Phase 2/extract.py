@@ -20,27 +20,28 @@ def one_letter_sequence(span: gemmi.ResidueSpan, start: int = -1, end: int = -1)
     # if no values given for start and end, assign them to start and end of span
     if start == -1:
         start = first_label
-    start = get_string_index(span, start)
+    start, string_start = get_label_and_string_index(span, start)
     if end == -1:
         end = last_label
-    end = get_string_index(span, end)
+    end, string_end = get_label_and_string_index(span, end)
 
     if end >= start:
-        return sequence[start:end + 1]
+        return sequence[string_start:string_end + 1], end - start + 1
     if end == 0:
-        return sequence[start::-1]
-    return sequence[start:end-1:-1]
+        return sequence[string_start::-1], -start - 1
+    return sequence[string_start:string_end-1:-1], end - start - 1
 
-def get_string_index(span: gemmi.ResidueSpan, target_label: int) -> int:
-    target_index = binary_search(span, 0, len(span) - 1, target_label)
+def get_label_and_string_index(span: gemmi.ResidueSpan, target_label: int) -> int:
+    first_conformer_span = list(span.first_conformer())
+    target_index = binary_search(first_conformer_span, 0, len(first_conformer_span) - 1, target_label)
     sequence = span.make_one_letter_sequence()
     dashes = sequence[:target_index + 1].count('-')
     string_index = target_index
     while (dashes != 0):
         next_index = string_index + dashes
+        dashes = sequence[string_index + 1:next_index + 1].count('-')
         string_index = next_index
-        dashes = sequence[string_index:next_index + 1].count('-')
-    return string_index
+    return target_index, string_index
 
 def binary_search(span: gemmi.ResidueSpan, left_index: int, right_index: int, target_label: int) -> int:
     if right_index < left_index:
@@ -156,7 +157,7 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor
                 start_pos = subchain[0].label_seq
                 end_pos = subchain[-1].label_seq
                 data = (id, entity.name, subchain.subchain_id(), parent_chain.name,
-                        subchain.make_one_letter_sequence(), start_pos, end_pos, len(subchain))
+                        subchain.make_one_letter_sequence(), start_pos, end_pos, subchain.length())
                 insert_into_table(cur, attr.subchain_table[0], data)
 
 def insert_into_chain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
@@ -169,7 +170,7 @@ def insert_into_chain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             end_pos = chain.get_polymer()[-1].label_seq
         sequence = chain.get_polymer().make_one_letter_sequence()
         data = (id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
-                sequence, start_pos, end_pos, len(chain.get_polymer()))
+                sequence, start_pos, end_pos, chain.get_polymer().length())
         insert_into_table(cur, attr.chain_table[0], data)
         
 def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
@@ -187,10 +188,8 @@ def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             sequence = "MULTIPLE CHAINS ERROR"
             data = (id, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, length)
         else:
-            direction = 1 if start_pos <= end_pos else -1
-            length = end_pos - start_pos + direction
-            sequence = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
-            data = (id, chain.name, sequence, start_pos, end_pos, length)
+            sequence, length = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
+            data = (id, chain.name, sequence, start_pos, end_pos, helix.length)
 
         insert_into_table(cur, attr.helix_table[0], data)
         
@@ -212,12 +211,9 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             end_pos = end_chain[end_auth_label][0].label_seq
 
             if (chain != end_chain):
-                length = strand.length
                 sequence = "MULTIPLE CHAINS ERROR"
-                data = (id, sheet.name, strand.name, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, length)
-            direction = 1 if start_pos <= end_pos else -1
-            length = end_pos - start_pos + direction
-            sequence = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
+                data = (id, sheet.name, strand.name, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, -1)
+            sequence, length = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
             data = (id, sheet.name, strand.name, chain.name, sequence, start_pos, end_pos, length)
             insert_into_table(cur, attr.strand_table[0], data)
 

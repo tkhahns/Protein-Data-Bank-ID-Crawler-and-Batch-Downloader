@@ -3,6 +3,7 @@ import os
 import re
 import extract
 import attr
+from tqdm import tqdm
 database = "./Phase 2/records/pdb_database_records.db" # Location of output SQL database
 rootdir = "./Phase 2/database" # Root directory of all the pdb files
 
@@ -15,7 +16,7 @@ if __name__ == "__main__":
     cur = con.cursor()
     init(cur)
 
-    for subdir, dirs, files in os.walk(rootdir):
+    for subdir, dirs, files in tqdm(os.walk(rootdir)):
         for file in files:
             path = os.path.join(subdir, file)
             if re.search('.*\.cif.*', path):
