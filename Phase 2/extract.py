@@ -1,19 +1,34 @@
+__author__ = "Siwan Li"
+"""
+This script contains all the functions needed for extracting information out of mmCIF files.
+Important things to note:
+- ResidueSpan.length() is often used over len(ResidueSpan), as the former counts the length of
+  the residue span (so only one residue  out of a set of microheterogeneities are counted),
+  whereas the latter counts how many residue elements are contained within the span
+  (so experimentally unconfirmed residues are excluded, and all residues of a set of
+  microheterogeneities are counted). Note that experimentally unconfirmed residues are
+  excluded from the length.
+- While either the primary sequence ID or the author sequence ID could be used, the primary
+  sequence ID is consistently used as it is always strictly increasing along the span. The author
+  sequence ID may decrease at certain points, as many residues may have the same numerical
+  author sequence ID, but have different 'icode's (see gemmi.SeqId.icode).
+"""
+
 import gemmi
 from gemmi import cif, EntityType, PolymerType
 import sqlite3
 import attr
 from attr import ComplexType
 
-# Extract a substring from the one-letter encoding of a given sequence of residues.
-# Start and end indices should be given in the one-indexed sequence address form, so
-# the first residue in the sequence has index 1, and the function returns the
-# substring from the start index to end index inclusive.
-# If the start index is greater than the end index, then the output sequence is
-# given in reverse of its input sequence.
-#
-# This function is intended to work for peptide polymer residue spans only, and is highly
-# susceptible to errors for other types of spans.
 def one_letter_sequence(span: gemmi.ResidueSpan, start: int = -1, end: int = -1) -> str:
+    """
+    Extract a substring from the one-letter encoding of a given sequence of residues.
+    Start and end indices should be given in label sequence ID form,
+    i.e. the integer given from Residue.label_seq, and the function returns the
+    substring from the start index to end index inclusive.
+    If the start index is greater than the end index, then the output sequence is
+    given in reverse of its input sequence.
+    """
     sequence = span.make_one_letter_sequence()
     first_label = span[0].label_seq
     last_label = span[-1].label_seq
@@ -32,6 +47,12 @@ def one_letter_sequence(span: gemmi.ResidueSpan, start: int = -1, end: int = -1)
     return sequence[string_start:string_end-1:-1], end - start - 1
 
 def get_label_and_string_index(span: gemmi.ResidueSpan, target_label: int) -> int:
+    """
+    Given some residue span and a target label ID, this returns the 'label index'
+    (i.e. the index in the span that calls the residue with the desired label sequence ID),
+    and the 'string index' (i.e. the index in the span's one letter sequence that
+    calls the character of the corresponding residue with the desired label sequence ID).
+    """
     first_conformer_span = list(span.first_conformer())
     target_index = binary_search(first_conformer_span, 0, len(first_conformer_span) - 1, target_label)
     sequence = span.make_one_letter_sequence()
@@ -44,6 +65,9 @@ def get_label_and_string_index(span: gemmi.ResidueSpan, target_label: int) -> in
     return target_index, string_index
 
 def binary_search(span: gemmi.ResidueSpan, left_index: int, right_index: int, target_label: int) -> int:
+    """
+    Helper method for finding the index of a desired element in a residue span by means of binary search.
+    """
     if right_index < left_index:
         raise Exception("Couldn't find index")
     centre_index = (left_index + right_index) // 2
@@ -64,15 +88,18 @@ def binary_search(span: gemmi.ResidueSpan, left_index: int, right_index: int, ta
     # centre_label < target_label
     return binary_search(span, centre_index + 1, right_index, target_label)
         
-
-# For the beta sheets table. Produces a sequence of the series of
-# parallel and antiparallel bonds between strands
 def sense_sequence(sheet: gemmi.Sheet) -> str:
+    """
+    For the beta sheets table. Produces a sequence of the series of
+    parallel and antiparallel bonds between strands.
+    """
     encoding = {1: 'P', -1: 'A', 0: ''}
     return ''.join([encoding[strand.sense] for strand in sheet.strands])
 
-# Determines the type of complex of structure based on the types of its entities
 def get_complex_type(struct: gemmi.Structure) -> ComplexType:
+    """
+    Determines the type of complex of the protein structure based on the types of its entities.
+    """
     # We use bitwise operations to quickly get the complex type
 
     # these values are 0 if compound doesn't have
@@ -112,13 +139,15 @@ def get_complex_type(struct: gemmi.Structure) -> ComplexType:
     
     return pending_complex_type
 
-# Insert given data into the given table
 def insert_into_table(cur: sqlite3.Cursor, table_name: str, data):
+    """
+    Inserts the given data into the given table
+    """
     args = ', '.join(['?' for i in range(len(data))])
     query = f'INSERT INTO {table_name} VALUES({args})'
     cur.execute(query, data)
 
-def insert_into_main_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
+def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, cur: sqlite3.Cursor):
     id = struct.info["_entry.id"]
     block = doc.sole_block()
     source_org = block.find_value("_entity_src_gen.pdbx_gene_src_scientific_name")
@@ -217,8 +246,10 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             data = (id, sheet.name, strand.name, chain.name, sequence, start_pos, end_pos, length)
             insert_into_table(cur, attr.strand_table[0], data)
 
-# Inserts the data of a given file into all tables
 def insert_into_all_tables(path: str, cur: sqlite3.Cursor):
+    """
+    Inserts the data of a given file into all tables
+    """
 
     insert_functions = [insert_into_main_table, insert_into_entity_table, insert_into_subchain_table,
                         insert_into_chain_table, insert_into_helix_table, insert_into_sheet_table,
