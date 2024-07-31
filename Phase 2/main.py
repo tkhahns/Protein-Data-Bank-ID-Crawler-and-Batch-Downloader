@@ -1,26 +1,22 @@
 import sqlite3
 import os
 import re
-import extract
-import attr
+import commands
 from tqdm import tqdm
-database = "./Phase 2/records/pdb_database_records.db" # Location of output SQL database
+sql_database = "./Phase 2/records/pdb_database_records.db" # Location of output SQL database
 rootdir = "./Phase 2/database" # Root directory of all the pdb files
-
-def init(cur):
-    for table_schema in attr.table_schemas:
-        cur.execute("CREATE TABLE IF NOT EXISTS " + table_schema[0] + table_schema[1])
+verbose = False
 
 if __name__ == "__main__":
-    con = sqlite3.connect(database)
+    con = sqlite3.connect(sql_database)
     cur = con.cursor()
-    init(cur)
+    commands.init_database(cur)
 
     for subdir, dirs, files in tqdm(os.walk(rootdir)):
         for file in files:
             path = os.path.join(subdir, file)
             if re.search('.*\.cif.*', path):
-                extract.insert_into_all_tables(path, cur)
+                commands.insert_file(cur, path, verbose=verbose)
+        con.commit()
 
-    con.commit()
     con.close()

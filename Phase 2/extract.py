@@ -14,11 +14,26 @@ Important things to note:
   author sequence ID, but have different 'icode's (see gemmi.SeqId.icode).
 """
 
+from typing import NewType
 import gemmi
 from gemmi import cif, EntityType, PolymerType
 import sqlite3
-import attr
-from attr import ComplexType
+import database
+from enum import Enum
+
+MainData = NewType("MainData", tuple[str, str, str, str, str, int, float, float, float, float, float, float])
+EntityData = NewType("EntityData", tuple[str, str, str, str, str, str, str, int])
+ChainData = NewType("ChainData", tuple[str, str, str, str, int, int, int])
+SubchainData = NewType("SubchainData", tuple[str, str, str, str, str, int, int, int])
+HelixData = NewType("HelixData", tuple[str, str, str, int, int, int])
+SheetData = NewType("SheetData", tuple[str, str, int, str])
+StrandData = NewType("StrandData", tuple[str, str, str, str, str, int, int, int])
+
+# Possible types of a complex, based on their entities
+ComplexType = Enum('ComplexType', ['Other', 'SingleProtein',
+                 'NucleicAcid', 'ProteinNA', 'Saccharide',
+                 'ProteinSaccharide', 'SaccharideNA', 'ProteinSaccharideNA',
+                 'Proteinmer', 'ComplexProtein'], start=0)
 
 def one_letter_sequence(span: gemmi.ResidueSpan, start: int = -1, end: int = -1) -> str:
     """
@@ -139,15 +154,7 @@ def get_complex_type(struct: gemmi.Structure) -> ComplexType:
     
     return pending_complex_type
 
-def insert_into_table(cur: sqlite3.Cursor, table_name: str, data):
-    """
-    Inserts the given data into the given table
-    """
-    args = ', '.join(['?' for i in range(len(data))])
-    query = f'INSERT INTO {table_name} VALUES({args})'
-    cur.execute(query, data)
-
-def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, cur: sqlite3.Cursor):
+def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document) -> MainData:
     id = struct.info["_entry.id"]
     block = doc.sole_block()
     source_org = block.find_value("_entity_src_gen.pdbx_gene_src_scientific_name")
@@ -158,23 +165,32 @@ def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, cur: sqli
     if "_cell.Z_PDB" in struct.info:
         z_value = struct.info["_cell.Z_PDB"]
     spacegroup = struct.spacegroup_hm
-    data = (id, complex_type.name, source_org, ' '.join(chains), spacegroup, z_value,
-                 cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
-    insert_into_table(cur, attr.main_table[0], data)
+    return [(id, complex_type.name, source_org, ' '.join(chains), spacegroup, z_value,
+                 cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)]
         
-def insert_into_entity_table(struct: gemmi.Structure, doc: cif.Document, cur: sqlite3.Cursor):
+def insert_into_entity_table(struct: gemmi.Structure, doc: cif.Document) -> EntityData:
+    data = []
     id = struct.info["_entry.id"]
     block = doc.sole_block()
     names = block.find_loop("_entity.pdbx_description")
     if len(names) == 0:
         name = block.find_value("_entity.pdbx_description")
         names = [name]
+    entity_sequences_item = block.find_value("_entity_poly.pdbx_seq_one_letter_code_can")
+    if entity_sequences_item is None:
+        entity_sequences = block.find_loop("_entity_poly.pdbx_seq_one_letter_code_can")
+    else:
+        # let entity_sequences be a 1-tuple consisting of block.find_value(...)
+        entity_sequences = entity_sequences_item,
     for index, entity in enumerate(struct.entities):
-        data = (id, entity.name, names[index], entity.entity_type.name,
-                     entity.polymer_type.name, ' '.join(entity.subchains))
-        insert_into_table(cur, attr.entity_table[0], data)
+        entity_sequence = '' if index >= len(entity_sequences)\
+                else entity_sequences[index].replace('\n', '').replace(';', '')
+        data.append((id, entity.name, names[index], entity.entity_type.name, entity.polymer_type.name,
+                     ' '.join(entity.subchains), entity_sequence, len(entity_sequence)))
+    return data
         
-def insert_into_subchain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
+def insert_into_subchain_table(struct: gemmi.Structure, doc) -> SubchainData:
+    data = []
     id = struct.info["_entry.id"]
     for entity in struct.entities:
         if entity.polymer_type in [PolymerType.PeptideD, PolymerType.PeptideL]:
@@ -185,11 +201,12 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor
                 parent_chain = struct[0].get_parent_of(subchain[0])
                 start_pos = subchain[0].label_seq
                 end_pos = subchain[-1].label_seq
-                data = (id, entity.name, subchain.subchain_id(), parent_chain.name,
-                        subchain.make_one_letter_sequence(), start_pos, end_pos, subchain.length())
-                insert_into_table(cur, attr.subchain_table[0], data)
+                data.append((id, entity.name, subchain.subchain_id(), parent_chain.name,
+                        subchain.make_one_letter_sequence(), start_pos, end_pos, subchain.length()))
+    return data
 
-def insert_into_chain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
+def insert_into_chain_table(struct: gemmi.Structure, doc) -> ChainData:
+    data = []
     id = struct.info["_entry.id"]
     for chain in struct[0]:
         if len(chain.get_polymer()) == 0:
@@ -198,11 +215,12 @@ def insert_into_chain_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
             start_pos = chain.get_polymer()[0].label_seq
             end_pos = chain.get_polymer()[-1].label_seq
         sequence = chain.get_polymer().make_one_letter_sequence()
-        data = (id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
-                sequence, start_pos, end_pos, chain.get_polymer().length())
-        insert_into_table(cur, attr.chain_table[0], data)
+        data.append((id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
+                sequence, start_pos, end_pos, chain.get_polymer().length()))
+    return data
         
-def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
+def insert_into_helix_table(struct: gemmi.Structure, doc) -> HelixData:
+    data = []
     id = struct.info["_entry.id"]
     for helix in struct.helices:
         chain = struct[0].find_cra(helix.start).chain
@@ -215,20 +233,21 @@ def insert_into_helix_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
         if (chain != end_chain):
             length = helix.length
             sequence = "MULTIPLE CHAINS ERROR"
-            data = (id, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, length)
+            data.append((id, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, length))
         else:
             sequence, length = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
-            data = (id, chain.name, sequence, start_pos, end_pos, helix.length)
-
-        insert_into_table(cur, attr.helix_table[0], data)
+            data.append((id, chain.name, sequence, start_pos, end_pos, helix.length))
+    return data
         
-def insert_into_sheet_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
+def insert_into_sheet_table(struct: gemmi.Structure, doc) -> SheetData:
+    data = []
     id = struct.info["_entry.id"]
     for sheet in struct.sheets:
-        data = (id, sheet.name, len(sheet.strands), sense_sequence(sheet))
-        insert_into_table(cur, attr.sheet_table[0], data)
+        data.append((id, sheet.name, len(sheet.strands), sense_sequence(sheet)))
+    return data
 
-def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
+def insert_into_strand_table(struct: gemmi.Structure, doc) -> StrandData:
+    data = []
     id = struct.info["_entry.id"]
     for sheet in struct.sheets:
         for strand in sheet.strands:
@@ -241,28 +260,7 @@ def insert_into_strand_table(struct: gemmi.Structure, doc, cur: sqlite3.Cursor):
 
             if (chain != end_chain):
                 sequence = "MULTIPLE CHAINS ERROR"
-                data = (id, sheet.name, strand.name, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, -1)
+                data.append((id, sheet.name, strand.name, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, -1))
             sequence, length = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
-            data = (id, sheet.name, strand.name, chain.name, sequence, start_pos, end_pos, length)
-            insert_into_table(cur, attr.strand_table[0], data)
-
-def insert_into_all_tables(path: str, cur: sqlite3.Cursor):
-    """
-    Inserts the data of a given file into all tables
-    """
-
-    insert_functions = [insert_into_main_table, insert_into_entity_table, insert_into_subchain_table,
-                        insert_into_chain_table, insert_into_helix_table, insert_into_sheet_table,
-                        insert_into_strand_table]
-    
-    try:
-        struct = gemmi.read_structure(path)
-        doc = cif.read(path)
-        res = cur.execute("SELECT entry_id FROM " + attr.main_table[0]\
-                            + " WHERE entry_id = '" + struct.info["_entry.id"] + "'")
-        if not res.fetchone(): # if there is no row in the main table with such entry ID
-            for function in insert_functions:
-                function(struct, doc, cur)
-    except Exception as error:
-        print(struct.name)
-        print(error)
+            data.append((id, sheet.name, strand.name, chain.name, sequence, start_pos, end_pos, length))
+    return data
