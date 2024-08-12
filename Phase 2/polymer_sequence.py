@@ -20,7 +20,7 @@ class PolymerSequence:
         while index < len(self.sequence):
             monomer = self.sequence[index]
             if monomer[4] == 'y':
-                while self.sequence[index][2] == self.sequence[index + 1][2]:
+                while index + 1 < len(self.sequence) and self.sequence[index][2] == self.sequence[index + 1][2]:
                     self.sequence.pop(index + 1)
             if last_chain != monomer[0]:
                 if last_chain != '':

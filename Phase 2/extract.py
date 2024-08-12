@@ -20,7 +20,8 @@ from gemmi import cif, EntityType, PolymerType
 from polymer_sequence import PolymerSequence
 from enum import Enum
 
-MainData = NewType("MainData", tuple[str, str, str, str, str, int, float, float, float, float, float, float])
+MainData = NewType("MainData", tuple[str, str, str, str, str, str, int, float, float, float, float, float, float])
+ExperimentalData = NewType("ExperimentalData", tuple[float, float, str, str, str, str, float, float])
 EntityData = NewType("EntityData", tuple[str, str, str, str, str, str])
 ChainData = NewType("ChainData", tuple[str, str, str, str, str, int, int, int])
 SubchainData = NewType("SubchainData", tuple[str, str, str, str, str, int, int, int])
@@ -87,6 +88,7 @@ def get_complex_type(struct: gemmi.Structure) -> ComplexType:
 
 def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> MainData:
     id = struct.info["_entry.id"]
+    struct_title = struct.info["_struct.title"]
     block = doc.sole_block()
     source_org = block.find_value("_entity_src_gen.pdbx_gene_src_scientific_name")
     if source_org is None:
@@ -99,8 +101,26 @@ def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, sequence:
     if "_cell.Z_PDB" in struct.info:
         z_value = int(struct.info["_cell.Z_PDB"])
     spacegroup = struct.spacegroup_hm
-    return [(id, complex_type.name, source_org, ' '.join(chains), spacegroup, z_value,
+    return [(id, complex_type.name, struct_title, source_org, ' '.join(chains), spacegroup, z_value,
                  cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)]
+
+def insert_into_experimental_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> ExperimentalData:
+    id = struct.info["_entry.id"]
+    block = doc.sole_block()
+    matthews_coefficient = block.find_value("_exptl_crystal.density_Matthews")
+    percent_solvent_content = block.find_value("_exptl_crystal.density_percent_sol")
+    crystal_growth_method = block.find_value("_exptl_crystal_grow.method")
+    crystal_growth_proc = block.find_value("_exptl_crystal_grow.pdbx_details")
+    crystal_growth_apparatus = block.find_value("_exptl_crystal_grow.apparatus")
+    crystal_growth_atmosphere = block.find_value("_exptl_crystal_grow.atmosphere")
+    crystal_growth_pH = block.find_value("_exptl_crystal_grow.pH")
+    crystal_growth_temp = block.find_value("_exptl_crystal_grow.temp")
+    data = [id, matthews_coefficient, percent_solvent_content, crystal_growth_method, crystal_growth_proc,\
+            crystal_growth_apparatus, crystal_growth_atmosphere, crystal_growth_pH, crystal_growth_temp]
+    for i in range(len(data)):
+        if data[i] is None:
+            data[i] = ''
+    return [tuple(data)]
         
 def insert_into_entity_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> EntityData:
     data = []
