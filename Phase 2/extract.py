@@ -17,13 +17,12 @@ Important things to note:
 from typing import NewType
 import gemmi
 from gemmi import cif, EntityType, PolymerType
-import sqlite3
-import database
+from polymer_sequence import PolymerSequence
 from enum import Enum
 
 MainData = NewType("MainData", tuple[str, str, str, str, str, int, float, float, float, float, float, float])
-EntityData = NewType("EntityData", tuple[str, str, str, str, str, str, str, int])
-ChainData = NewType("ChainData", tuple[str, str, str, str, int, int, int])
+EntityData = NewType("EntityData", tuple[str, str, str, str, str, str])
+ChainData = NewType("ChainData", tuple[str, str, str, str, str, int, int, int])
 SubchainData = NewType("SubchainData", tuple[str, str, str, str, str, int, int, int])
 HelixData = NewType("HelixData", tuple[str, str, str, int, int, int])
 SheetData = NewType("SheetData", tuple[str, str, int, str])
@@ -34,74 +33,6 @@ ComplexType = Enum('ComplexType', ['Other', 'SingleProtein',
                  'NucleicAcid', 'ProteinNA', 'Saccharide',
                  'ProteinSaccharide', 'SaccharideNA', 'ProteinSaccharideNA',
                  'Proteinmer', 'ComplexProtein'], start=0)
-
-def one_letter_sequence(span: gemmi.ResidueSpan, start: int = -1, end: int = -1) -> str:
-    """
-    Extract a substring from the one-letter encoding of a given sequence of residues.
-    Start and end indices should be given in label sequence ID form,
-    i.e. the integer given from Residue.label_seq, and the function returns the
-    substring from the start index to end index inclusive.
-    If the start index is greater than the end index, then the output sequence is
-    given in reverse of its input sequence.
-    """
-    sequence = span.make_one_letter_sequence()
-    first_label = span[0].label_seq
-    last_label = span[-1].label_seq
-    # if no values given for start and end, assign them to start and end of span
-    if start == -1:
-        start = first_label
-    start, string_start = get_label_and_string_index(span, start)
-    if end == -1:
-        end = last_label
-    end, string_end = get_label_and_string_index(span, end)
-
-    if end >= start:
-        return sequence[string_start:string_end + 1], end - start + 1
-    if end == 0:
-        return sequence[string_start::-1], -start - 1
-    return sequence[string_start:string_end-1:-1], end - start - 1
-
-def get_label_and_string_index(span: gemmi.ResidueSpan, target_label: int) -> int:
-    """
-    Given some residue span and a target label ID, this returns the 'label index'
-    (i.e. the index in the span that calls the residue with the desired label sequence ID),
-    and the 'string index' (i.e. the index in the span's one letter sequence that
-    calls the character of the corresponding residue with the desired label sequence ID).
-    """
-    first_conformer_span = list(span.first_conformer())
-    target_index = binary_search(first_conformer_span, 0, len(first_conformer_span) - 1, target_label)
-    sequence = span.make_one_letter_sequence()
-    dashes = sequence[:target_index + 1].count('-')
-    string_index = target_index
-    while (dashes != 0):
-        next_index = string_index + dashes
-        dashes = sequence[string_index + 1:next_index + 1].count('-')
-        string_index = next_index
-    return target_index, string_index
-
-def binary_search(span: gemmi.ResidueSpan, left_index: int, right_index: int, target_label: int) -> int:
-    """
-    Helper method for finding the index of a desired element in a residue span by means of binary search.
-    """
-    if right_index < left_index:
-        raise Exception("Couldn't find index")
-    centre_index = (left_index + right_index) // 2
-    centre_label = span[centre_index].label_seq
-    if centre_label == target_label:
-        return centre_index
-    difference = target_label - centre_label
-    next_index = centre_index + difference
-    # ensure that next_index are between the left_index and right_index
-    next_index = max(left_index, next_index)
-    next_index = min(right_index, next_index)
-    next_label = span[next_index].label_seq
-    if next_label == target_label:
-        return next_index
-    
-    if target_label < centre_label:
-        return binary_search(span, left_index, centre_index - 1, target_label)
-    # centre_label < target_label
-    return binary_search(span, centre_index + 1, right_index, target_label)
         
 def sense_sequence(sheet: gemmi.Sheet) -> str:
     """
@@ -154,21 +85,24 @@ def get_complex_type(struct: gemmi.Structure) -> ComplexType:
     
     return pending_complex_type
 
-def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document) -> MainData:
+def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> MainData:
     id = struct.info["_entry.id"]
     block = doc.sole_block()
     source_org = block.find_value("_entity_src_gen.pdbx_gene_src_scientific_name")
+    if source_org is None:
+        source_org = ''
+    source_org = source_org.strip("'")
     complex_type = get_complex_type(struct)
     chains = [chain.name for chain in struct[0]]
     cell = struct.cell
-    z_value = None
+    z_value = ''
     if "_cell.Z_PDB" in struct.info:
-        z_value = struct.info["_cell.Z_PDB"]
+        z_value = int(struct.info["_cell.Z_PDB"])
     spacegroup = struct.spacegroup_hm
     return [(id, complex_type.name, source_org, ' '.join(chains), spacegroup, z_value,
                  cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)]
         
-def insert_into_entity_table(struct: gemmi.Structure, doc: cif.Document) -> EntityData:
+def insert_into_entity_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> EntityData:
     data = []
     id = struct.info["_entry.id"]
     block = doc.sole_block()
@@ -176,20 +110,14 @@ def insert_into_entity_table(struct: gemmi.Structure, doc: cif.Document) -> Enti
     if len(names) == 0:
         name = block.find_value("_entity.pdbx_description")
         names = [name]
-    entity_sequences_item = block.find_value("_entity_poly.pdbx_seq_one_letter_code_can")
-    if entity_sequences_item is None:
-        entity_sequences = block.find_loop("_entity_poly.pdbx_seq_one_letter_code_can")
-    else:
-        # let entity_sequences be a 1-tuple consisting of block.find_value(...)
-        entity_sequences = entity_sequences_item,
     for index, entity in enumerate(struct.entities):
-        entity_sequence = '' if index >= len(entity_sequences)\
-                else entity_sequences[index].replace('\n', '').replace(';', '')
-        data.append((id, entity.name, names[index], entity.entity_type.name, entity.polymer_type.name,
-                     ' '.join(entity.subchains), entity_sequence, len(entity_sequence)))
+        if names[index] is None:
+            names[index] = ''
+        data.append((id, entity.name, names[index].strip("'"), entity.entity_type.name, entity.polymer_type.name,
+                     ' '.join(entity.subchains)))
     return data
         
-def insert_into_subchain_table(struct: gemmi.Structure, doc) -> SubchainData:
+def insert_into_subchain_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> SubchainData:
     data = []
     id = struct.info["_entry.id"]
     for entity in struct.entities:
@@ -201,11 +129,13 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc) -> SubchainData:
                 parent_chain = struct[0].get_parent_of(subchain[0])
                 start_pos = subchain[0].label_seq
                 end_pos = subchain[-1].label_seq
+                annotated_sequence = subchain.make_one_letter_sequence()
+                unannotated_sequence = sequence.get_chain_subsequence(parent_chain.name, start_pos, end_pos)[0]
                 data.append((id, entity.name, subchain.subchain_id(), parent_chain.name,
-                        subchain.make_one_letter_sequence(), start_pos, end_pos, subchain.length()))
+                        annotated_sequence, unannotated_sequence, start_pos, end_pos, subchain.length()))
     return data
 
-def insert_into_chain_table(struct: gemmi.Structure, doc) -> ChainData:
+def insert_into_chain_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> ChainData:
     data = []
     id = struct.info["_entry.id"]
     for chain in struct[0]:
@@ -214,53 +144,47 @@ def insert_into_chain_table(struct: gemmi.Structure, doc) -> ChainData:
         else:
             start_pos = chain.get_polymer()[0].label_seq
             end_pos = chain.get_polymer()[-1].label_seq
-        sequence = chain.get_polymer().make_one_letter_sequence()
+        annotated_sequence = chain.get_polymer().make_one_letter_sequence()
+        unannotated_sequence = sequence.get_chain_sequence(chain.name)
         data.append((id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
-                sequence, start_pos, end_pos, chain.get_polymer().length()))
+                annotated_sequence, unannotated_sequence, start_pos, end_pos, chain.get_polymer().length()))
     return data
         
-def insert_into_helix_table(struct: gemmi.Structure, doc) -> HelixData:
+def insert_into_helix_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> HelixData:
     data = []
     id = struct.info["_entry.id"]
     for helix in struct.helices:
+        sequence_code = sequence.get_helix_sequence(helix, struct)
         chain = struct[0].find_cra(helix.start).chain
         end_chain = struct[0].find_cra(helix.end).chain
         start_auth_label = str(helix.start.res_id.seqid.num) + helix.start.res_id.seqid.icode
         end_auth_label = str(helix.end.res_id.seqid.num) + helix.end.res_id.seqid.icode
         start_pos = chain[start_auth_label][0].label_seq
         end_pos = end_chain[end_auth_label][0].label_seq
-
-        if (chain != end_chain):
-            length = helix.length
-            sequence = "MULTIPLE CHAINS ERROR"
-            data.append((id, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, length))
+        if chain != end_chain:
+            data.append((id, chain.name + ' ' + end_chain.name, sequence_code, start_pos, end_pos, helix.length))
         else:
-            sequence, length = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
-            data.append((id, chain.name, sequence, start_pos, end_pos, helix.length))
+            data.append((id, chain.name, sequence_code, start_pos, end_pos, helix.length))
     return data
         
-def insert_into_sheet_table(struct: gemmi.Structure, doc) -> SheetData:
+def insert_into_sheet_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> SheetData:
     data = []
     id = struct.info["_entry.id"]
     for sheet in struct.sheets:
         data.append((id, sheet.name, len(sheet.strands), sense_sequence(sheet)))
     return data
 
-def insert_into_strand_table(struct: gemmi.Structure, doc) -> StrandData:
+def insert_into_strand_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> StrandData:
     data = []
     id = struct.info["_entry.id"]
     for sheet in struct.sheets:
         for strand in sheet.strands:
+            sequence_code, length = sequence.get_strand_sequence(strand, struct)
             chain = struct[0].find_cra(strand.start).chain
             end_chain = struct[0].find_cra(strand.end).chain
             start_auth_label = str(strand.start.res_id.seqid.num) + strand.start.res_id.seqid.icode
             end_auth_label = str(strand.end.res_id.seqid.num) + strand.end.res_id.seqid.icode
             start_pos = chain[start_auth_label][0].label_seq
             end_pos = end_chain[end_auth_label][0].label_seq
-
-            if (chain != end_chain):
-                sequence = "MULTIPLE CHAINS ERROR"
-                data.append((id, sheet.name, strand.name, chain.name + ' ' + end_chain.name, sequence, start_pos, end_pos, -1))
-            sequence, length = one_letter_sequence(chain.get_polymer(), start_pos, end_pos)
-            data.append((id, sheet.name, strand.name, chain.name, sequence, start_pos, end_pos, length))
+            data.append((id, sheet.name, strand.name, chain.name, sequence_code, start_pos, end_pos, length))
     return data

@@ -22,22 +22,22 @@ main_table = Table("main", main_table_attributes, extract.insert_into_main_table
 
 entity_table_attributes = Attributes[extract.EntityData]\
     ([entry_id, ("entity_id", "VARCHAR(5) NOT NULL"), ("entity_name", "VARCHAR(200)"),
-      ("entity_type", "VARCHAR(25)"), ("polymer_type", "VARCHAR(25)"), ("subchains", "VARCHAR"),
-      ("unannotated_chain_sequence", "VARCHAR"), length],
+      ("entity_type", "VARCHAR(25)"), ("polymer_type", "VARCHAR(25)"), ("subchains", "VARCHAR")],
       primary_keys=["entry_id", "entity_id"],
       foreign_keys={"entry_id": ("main", "entry_id")})
 entity_table = Table("entities", entity_table_attributes, extract.insert_into_entity_table)
 
 chain_table_attributes = Attributes[extract.ChainData]\
-    ([entry_id, chain_id, ("subchains", "VARCHAR"), ("chain_sequence", "VARCHAR"),
-      start_position, end_position, length],
+    ([entry_id, chain_id, ("subchains", "VARCHAR"), ("annotated_chain_sequence", "VARCHAR"),
+      ("unannotated_chain_sequence", "VARCHAR"), start_position, end_position, length],
       primary_keys=["entry_id", "chain_id"],
       foreign_keys={"entry_id": ("main", "entry_id")})
 chain_table = Table("chains", chain_table_attributes, extract.insert_into_chain_table)
 
 subchain_table_attributes = Attributes[extract.SubchainData]\
     ([entry_id, ("entity_id", "VARCHAR(5) NOT NULL"), ("subchain_id", "VARCHAR(5) NOT NULL"), chain_id,
-      ("subchain_sequence", "VARCHAR"), start_position, end_position, length],
+      ("annotated_subchain_sequence", "VARCHAR"), ("unannotated_subchain_sequence", "VARCHAR"),
+      start_position, end_position, length],
       primary_keys=["entry_id", "subchain_id"],
       foreign_keys={"entry_id": ("main", "entry_id"), "entity_id": ("entities", "entity_id"),
                     "chain_id": ("chains", "chain_id")})

@@ -2,12 +2,13 @@ from typing import TypeVarTuple, Callable, Generic
 from attributes import Attributes
 import gemmi
 from gemmi import cif
+from polymer_sequence import PolymerSequence
 
 AttributeTypes = TypeVarTuple('AttributeTypes')
 
 class Table(Generic[*AttributeTypes]):
     def __init__(self, name: str, attributes: Attributes[*AttributeTypes],
-                 extractor: Callable[[gemmi.Structure, cif.Document], list[tuple[*AttributeTypes]]]):
+                 extractor: Callable[[gemmi.Structure, cif.Document, PolymerSequence], list[tuple[*AttributeTypes]]]):
         self.name = name
         self.attributes = attributes
         self.extractor = extractor
@@ -21,8 +22,8 @@ class Table(Generic[*AttributeTypes]):
     def retrieve(self, columns=("*",)) -> str:
         return f"SELECT {', '.join(columns)} FROM {self.name}"
     
-    def extract_data(self, struct: gemmi.Structure, doc: cif.Document) -> list[Attributes]:
-        return self.extractor(struct, doc)
+    def extract_data(self, struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> list[Attributes]:
+        return self.extractor(struct, doc, sequence)
     
     def insert_row(self, data: Attributes):
         args = ', '.join(['?' for i in range(len(data))])

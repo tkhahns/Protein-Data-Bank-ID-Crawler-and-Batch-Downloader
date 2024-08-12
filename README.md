@@ -4,7 +4,7 @@
 
 ## Phase 1
 
- Previously, I used the PDB api and a batch download script to retrieve all the protein names and download their files. This has now been superceded by using `rsync` as recommended by PDB themselves, as it provides a simple interface for downloading and maintaining a local copy of their database. Instructions for using `rsync` with the database can be found [here](https://www.wwpdb.org/ftp/pdb-ftp-sites) The old phase 1 files are still here for archival purposes.
+ Previously, I used the PDB api and a batch download script to retrieve all the protein names and download their files. This has now been superseded by using `rsync` as recommended by PDB themselves, as it provides a simple interface for downloading and maintaining a local copy of their database. Instructions for using `rsync` with the database can be found [here](https://www.wwpdb.org/ftp/pdb-ftp-sites) The old phase 1 files are still here for archival purposes.
 
  The software uses the RCSB PDB search API to scrape a list of all protein IDs off of the data bank and writes it to `list_file.txt`. One can then run the bash script (sourced from PDB) to download all the PDB files; run `./batch_download.sh -f list_file.txt -p` in bash in the root directory, and a `.pdb.gz` archive file containing a `.ent` file of each protein will be downloaded to the `database` directory.
 
