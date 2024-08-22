@@ -15,8 +15,10 @@ import os
 import glob
 import requests
 import requests_cache
-import extract
 from typing import NewType
+
+import extract
+from polymer_sequence import PolymerSequence
 
 MainData = NewType("MainData", tuple[str, str, str, str, str, str, str, str])
 SubchainData = NewType("SubchainData", list[tuple[str, str, str, str, str, int]])
@@ -26,6 +28,7 @@ entry_ids = [
     '1TGU','1XDF','2G9P','2HUM','3DSE','3IRL','3U7T','3UF8','4F5S','4W2P','5QB9','5SON',
     '5U5C','5YII','6C6W','6FFL','6I06','6J4B','7A16','7H4H','7QTR','8E17','8FP7','8UHO','9B7F'
 ]
+
 
 # Cache data for repeated calls
 requests_cache.install_cache('api_cache', expire_after=1800)  
@@ -39,15 +42,16 @@ def rootdir() -> str:
 def polymer_types() -> set[str]:
     return {"polypeptide(L)", "polypeptide(D)"}
 
-def read_file(rootdir: str, entry_id: str) -> tuple[gemmi.Structure, cif.Document]:
+def read_file(rootdir: str, entry_id: str) -> tuple[gemmi.Structure, cif.Document, PolymerSequence]:
     """Read the structure and document for a given entry id."""
     path = os.path.join(rootdir, f'*{entry_id.lower()}*')
     file_path = glob.glob(path)[0]
 
     struct = gemmi.read_structure(file_path)
     doc = cif.read(file_path)
+    sequence = PolymerSequence(doc)
 
-    return struct, doc
+    return struct, doc, sequence
 
 def make_request(obj: str, entry_id: str = "", entity_id: str = ""):
     """Make a request to retrieve PDB data through an endpoint, which differs according to the given data object (obj)."""
@@ -96,28 +100,29 @@ def fetch_subchain_data(entry_id: str, polymer_types: set[str]) -> SubchainData:
                 subchains = entity_data.get('rcsb_polymer_entity_container_identifiers', {}).get('asym_ids', [])
                 for index, subchain in enumerate(subchains):
                     chains = entity_data.get('rcsb_polymer_entity_container_identifiers', {}).get('auth_asym_ids', [])
-                    chain_id = chains[index] # auth_asym_ids should be present in all right??
-                    seq = entity_data.get('entity_poly', {}).get('pdbx_seq_one_letter_code_can', None)
+                    chain_id = chains[index] 
+                    annotated_seq = entity_data.get('entity_poly', {}).get('pdbx_seq_one_letter_code', None)
+                    unannotated_seq = entity_data.get('entity_poly', {}).get('pdbx_seq_one_letter_code_can', None)
                     length = entity_data.get('entity_poly', {}).get('rcsb_sample_sequence_length', None)
-                    data.append((entry_id, entity_id, subchain, chain_id, seq, length))
+                    data.append((entry_id, entity_id, subchain, chain_id, annotated_seq, unannotated_seq, length))
     return data
 
 @pytest.mark.parametrize("entry_id", entry_ids)
 def test_insert_into_main_table(entry_id, rootdir):
-    struct, doc = read_file(rootdir, entry_id)
-    result = extract.insert_into_main_table(struct, doc)[0][4:]
+    struct, doc, sequence = read_file(rootdir, entry_id)
+    result = extract.insert_into_main_table(struct, doc, sequence)[0][5:]
     expected = fetch_main_data(entry_id)
         
-    assert result == expected
+    assert (result == expected)
 
 @pytest.mark.parametrize("entry_id", entry_ids)
 def test_insert_into_subchain_table(entry_id, rootdir, polymer_types):
     # Skip test if the entry does not contain protein entities, hence no subchains to test
     if entry_id in ['146D', '178D', '3IRL']: 
         pytest.skip(f"Entry {entry_id} does not contain protein entities")  
-    struct, doc = read_file(rootdir, entry_id)
-    result = extract.insert_into_subchain_table(struct, doc)
-    result = [(subchain[0], subchain[1], subchain[2], subchain[3], subchain[4], subchain[7]) for subchain in result]  # all except start_pos, end_pos
+    struct, doc, sequence = read_file(rootdir, entry_id)
+    result = extract.insert_into_subchain_table(struct, doc, sequence)
+    result = [(subchain[0], subchain[1], subchain[2], subchain[3], subchain[4], subchain[5], subchain[8]) for subchain in result]  # all except start_pos, end_pos
     expected = fetch_subchain_data(entry_id, polymer_types)
     
     assert sorted(result) == sorted(expected)
