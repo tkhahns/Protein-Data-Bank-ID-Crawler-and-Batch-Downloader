@@ -19,57 +19,55 @@ class MockComplexType:
         self.mock_struct = gemmi.Structure()
         self.complex_type = complex_type
 
-    
     def create_mock_entities(self) -> gemmi.EntityList:
-        if self.complex_type == ComplexType.Other: 
-            mock_entities = gemmi.EntityList([MockEntity(EntityType.Unknown).get_entity()])
+        entity_args = {
+            ComplexType.Other: [
+                (EntityType.Unknown,)
+            ],
+            ComplexType.NucleicAcid : [
+                (EntityType.Polymer, PolymerType.Dna), 
+                (EntityType.Polymer, PolymerType.Rna), 
+                (EntityType.Polymer, PolymerType.DnaRnaHybrid),
+                (EntityType.Polymer, PolymerType.Pna)
+            ],
+            ComplexType.Saccharide: [
+                (EntityType.Branched,),
+                (EntityType.Polymer, PolymerType.SaccharideD),
+                (EntityType.Polymer, PolymerType.SaccharideL)
+            ],
+            ComplexType.SingleProtein: [
+                (EntityType.Polymer, PolymerType.PeptideL, ["A"])
+            ],
+            ComplexType.Proteinmer: [
+                (EntityType.Polymer, PolymerType.PeptideL, ["A", "B"])
+            ], 
+            ComplexType.ComplexProtein: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.PeptideL)
+            ],
+            ComplexType.ProteinNA: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.Dna)
+            ],
+            ComplexType.ProteinSaccharide: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.SaccharideD)
+            ],
+            ComplexType.SaccharideNA: [
+                (EntityType.Polymer, PolymerType.SaccharideD),
+                (EntityType.Polymer, PolymerType.Dna)
+            ], 
+            ComplexType.ProteinSaccharideNA: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.SaccharideD),
+                (EntityType.Polymer, PolymerType.Dna)
+            ]    
+        }
+        mock_entities = gemmi.EntityList()
 
-        elif self.complex_type == ComplexType.NucleicAcid:
-            mock_entities = gemmi.EntityList([
-                MockEntity(EntityType.Polymer, PolymerType.Dna).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.Rna).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.DnaRnaHybrid).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.Pna).get_entity()
-            ])
-        elif self.complex_type == ComplexType.Saccharide:
-            mock_entities = gemmi.EntityList([
-                MockEntity(EntityType.Branched).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.SaccharideD).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.SaccharideL).get_entity()
-            ])
-        elif self.complex_type == ComplexType.SingleProtein:
-            mock_entities = gemmi.EntityList([MockEntity(EntityType.Polymer, PolymerType.PeptideL, ["A"]).get_entity()])
-        
-        elif self.complex_type == ComplexType.Proteinmer:
-            mock_entities = gemmi.EntityList([MockEntity(EntityType.Polymer, PolymerType.PeptideL, ["A", "B"]).get_entity()])
-        
-        elif self.complex_type == ComplexType.ComplexProtein:
-            mock_entities = gemmi.EntityList([
-                MockEntity(EntityType.Polymer, PolymerType.PeptideD).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.PeptideL).get_entity()
-            ])
-        elif self.complex_type == ComplexType.ProteinNA:
-            mock_entities = gemmi.EntityList([
-                MockEntity(EntityType.Polymer, PolymerType.PeptideD).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.Dna).get_entity()
-            ])
-        elif self.complex_type == ComplexType.ProteinSaccharide:
-            mock_entities = gemmi.EntityList([
-                MockEntity(EntityType.Polymer, PolymerType.PeptideD).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.SaccharideD).get_entity()
-            ])
-        elif self.complex_type == ComplexType.SaccharideNA:
-            mock_entities = gemmi.EntityList([
-                MockEntity(EntityType.Polymer, PolymerType.SaccharideD).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.Dna).get_entity()
-            ])
-        elif self.complex_type == ComplexType.ProteinSaccharideNA:
-            mock_entities = gemmi.EntityList([
-                MockEntity(EntityType.Polymer, PolymerType.PeptideD).get_entity(), 
-                MockEntity(EntityType.Polymer, PolymerType.SaccharideD).get_entity(),
-                MockEntity(EntityType.Polymer, PolymerType.Dna).get_entity()
-            ])
-        
+        for args in entity_args[self.complex_type]:
+            mock_entities.append(MockEntity(*args).get_entity())
+            
         return mock_entities
 
     def get_struct(self) -> gemmi.Structure:
