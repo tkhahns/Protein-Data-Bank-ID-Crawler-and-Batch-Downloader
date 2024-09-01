@@ -1,5 +1,13 @@
 import gemmi
 from gemmi import cif
+from typing import NamedTuple
+
+class Monomer(NamedTuple):
+    chain: str
+    entity: int
+    seq_id: int
+    name: str
+    hetero: str
 
 class PolymerSequence:
     def __init__(self, doc: cif.Document):
@@ -12,26 +20,27 @@ class PolymerSequence:
         list_monomer = list(block.find_loop("_pdbx_poly_seq_scheme.mon_id"))
         list_hetero = list(block.find_loop("_pdbx_poly_seq_scheme.hetero"))
         
-        self.sequence = list(zip(list_chain, list_entity, list_id, list_monomer, list_hetero))
+        temp_sequence = list(zip(list_chain, list_entity, list_id, list_monomer, list_hetero))
+        self.sequence = [Monomer(*monomer) for monomer in temp_sequence]
         self.chain_start_indices = {}
         self.chain_end_indices = {}
         last_chain = ''
         index = 0
         while index < len(self.sequence):
             monomer = self.sequence[index]
-            if monomer[4] == 'y':
-                while index + 1 < len(self.sequence) and self.sequence[index][2] == self.sequence[index + 1][2]:
+            if monomer.hetero == 'y':
+                while index + 1 < len(self.sequence) and self.sequence[index].seq_id == self.sequence[index + 1].seq_id:
                     self.sequence.pop(index + 1)
-            if last_chain != monomer[0]:
+            if last_chain != monomer.chain:
                 if last_chain != '':
                     self.chain_end_indices[last_chain] = index - 1
-                last_chain = monomer[0]
+                last_chain = monomer.chain
                 self.chain_start_indices[last_chain] = index
             index += 1
         self.chain_end_indices[last_chain] = index - 1
 
-        amino_acid_sequence = [monomer[3] for monomer in self.sequence]
-        self.one_letter_code = sequence_3to1(amino_acid_sequence)
+        monomer_sequence = [monomer.name for monomer in self.sequence]
+        self.one_letter_code = sequence_3to1(monomer_sequence)
     
     def binary_search(self, left_index: int, right_index: int, target_label: int) -> int:
         """
@@ -132,7 +141,8 @@ three_to_one = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N',
                 'ILE': 'I', 'LEU': 'L', 'LYS': 'K',
                 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
                 'SER': 'S', 'THR': 'T', 'TRP': 'W',
-                'TYR': 'Y', 'VAL': 'V'}
+                'TYR': 'Y', 'VAL': 'V', 'DA': 'A',
+                'DT': 'T', 'DG': 'G', 'DC': 'C'}
 
 def letter_code_3to1(polymer: str) -> str:
     if (polymer in three_to_one.keys()):
