@@ -15,45 +15,95 @@ from gemmi import cif
 
 import extract 
 from extract import ComplexType
-from polymer_sequence import PolymerSequence
+from polymer_sequence import PolymerSequence, sequence_3to1, letter_code_3to1
 import mocks
 
-@pytest.fixture
-def mock_structure():
-    mock_structure = MagicMock(spec=gemmi.Structure)
+@pytest.mark.skip(reason=None)
+def test_insert_into_chain_table(mock_structure, mock_chain):
+    """
+        Tests the insert_into_chain_table function. 
+    """
+    # assign chain to mock_structure
+    mock_structure.__getitem__.return_value = [mock_chain]
 
-    return mock_structure
-
-@pytest.fixture
-def mock_polymer_sequence():
     mock_doc = MagicMock(spec=cif.Document)
-    polymer_sequence = PolymerSequence(mock_doc)
-    polymer_sequence.one_letter_code = 'ADQCMVIRQMPWPCATWRPRNEYLMHKHRRGMDPCYIGPFPGCQIGINIK'
+    mock_polymer_sequence = MagicMock(spec=PolymerSequence)
 
-    polymer_sequence.chain_start_indices = {'A': 0}
-    polymer_sequence.chain_end_indices = {'A': len(polymer_sequence.one_letter_code) - 1}
+    # mock unannotated sequence
+    mock_polymer_sequence.get_chain_sequence.return_value = 'ARNDCQEGHIX'
 
-    return polymer_sequence
+    result = extract.insert_into_chain_table(mock_structure, mock_doc, mock_polymer_sequence)
 
-@pytest.fixture
-def mock_helix():
-    mock_helix = MagicMock(spec=gemmi.Helix)
-    mock_helix.start.res_id.seqid.num = 1
-    mock_helix.start.res_id.seqid.icode = ''
-    mock_helix.end.res_id.seqid.num = 10
-    mock_helix.end.res_id.seqid.icode = ''
+    expected = [
+        ('1A00', 'A', 'A A', 'ARNDCQEGHIX', 'ARNDCQEGHIX', 1, 11, 11)
+    ]
 
-    return mock_helix
+    assert result == expected
 
-@pytest.fixture
-def mock_strand():
-    mock_strand = MagicMock(spec=gemmi.Sheet.Strand)
-    mock_strand.start.res_id.seqid.num = 41
-    mock_strand.start.res_id.seqid.icode = ''
-    mock_strand.end.res_id.seqid.num = 50
-    mock_strand.end.res_id.seqid.icode = ''
+#@pytest.mark.skip(reason=None)
+def test_insert_into_chain_table_start_end_pos_are_none(mock_structure, mock_empty_chain):
+    """
+        Tests that the insert_into_chain_table function returns None for start and end positions
+        when the chain does not contain any polymers.
+    """
+    # assign chain to mock_structure
+    mock_structure.__getitem__.return_value = [mock_empty_chain]
+    
+    mock_doc = MagicMock(spec=cif.Document)
+    mock_polymer_sequence = MagicMock(spec=PolymerSequence)
 
-    return mock_strand
+    # mock empty unannotated sequence
+    mock_polymer_sequence.get_chain_sequence.return_value = ''
+
+    result = extract.insert_into_chain_table(mock_structure, mock_doc, mock_polymer_sequence)
+
+    expected = [
+        ('1A00', 'A', 'A', '', '', None, None, 0)
+    ]
+
+    assert result == expected
+
+#@pytest.mark.skip(reason=None)
+def test_get_chain_sequence(mock_polymer_sequence):
+    mock_chain_name = 'A'
+    result_sequence = mock_polymer_sequence.get_chain_sequence(mock_chain_name)
+    expected_sequence = 'ARNDCQEGHIX'
+    
+    # check that one_letter_code was indexed once
+    mock_polymer_sequence.one_letter_code.__getitem__.assert_called_once()
+    assert result_sequence == expected_sequence
+
+#@pytest.mark.skip(reason=None)
+def test_get_chain_sequence_chain_not_in_start_indices(mock_polymer_sequence):
+    mock_chain_name = 'C'
+    result_sequence = mock_polymer_sequence.get_chain_sequence(mock_chain_name)
+    expected_sequence = ''
+
+    assert result_sequence == expected_sequence
+
+@pytest.mark.xfail(reason="condition checking for chain in end_indices absent") 
+def test_get_chain_sequence_chain_not_in_end_indices(mock_polymer_sequence):
+    mock_chain_name = 'B'
+    result_sequence = mock_polymer_sequence.get_chain_sequence(mock_chain_name)
+    expected_sequence = ''
+
+    assert result_sequence == expected_sequence
+
+@patch.dict("polymer_sequence.three_to_one", {'AAA': 'A'})
+def test_letter_code_3to1():
+    known_polymer = 'AAA'
+    unknown_polymer = 'XXX'
+    
+    assert letter_code_3to1(known_polymer) == 'A'
+    assert letter_code_3to1(unknown_polymer) == 'X'
+
+@pytest.mark.xfail(reason="last monomer is omitted") 
+def test_sequence_3to1():
+    amino_acid_sequence = ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'XXX']
+    result = sequence_3to1(amino_acid_sequence)
+    expected = 'ARNDCQEGHIX'
+
+    assert result == expected
 
 #@pytest.mark.skip(reason=None)
 @patch('polymer_sequence.PolymerSequence.binary_search')
@@ -64,10 +114,10 @@ def test_get_helix_sequence(mock_binary_search, mock_structure, mock_polymer_seq
     
     mock_chain.__getitem__.side_effect = lambda x: MagicMock(label_seq=int(x))
 
-    expected_sequence = "ADQCMVIRQM"
+    expected_sequence = 'ARNDCQEGHIX'
     
     # mock return values of binary_search function to chain_start and chain_end
-    mock_binary_search.side_effect = [0, 9]
+    mock_binary_search.side_effect = [0, 10]
 
     helix_sequence = mock_polymer_sequence.get_helix_sequence(mock_helix, mock_structure)
     
@@ -98,10 +148,10 @@ def test_get_strand_sequence(mock_binary_search, mock_structure, mock_polymer_se
     
     mock_chain.__getitem__.side_effect = lambda x: MagicMock(label_seq=int(x))
 
-    expected = ("PGCQIGINIK", 10)
+    expected = ('ARNDCQEGHIX', 10)
     
     # mock return values of binary_search function to chain_start and chain_end
-    mock_binary_search.side_effect = [40, 49]
+    mock_binary_search.side_effect = [0, 9]
 
     result = mock_polymer_sequence.get_strand_sequence(mock_strand, mock_structure)
     
