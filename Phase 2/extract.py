@@ -28,6 +28,7 @@ SubchainData = NewType("SubchainData", tuple[str, str, str, str, str, int, int, 
 HelixData = NewType("HelixData", tuple[str, str, str, int, int, int])
 SheetData = NewType("SheetData", tuple[str, str, int, str])
 StrandData = NewType("StrandData", tuple[str, str, str, str, str, int, int, int])
+CoilData = NewType("CoilData", tuple[str, int, str, str, int, int, int])
 
 # Possible types of a complex, based on their entities
 ComplexType = Enum('ComplexType', ['Other', 'SingleProtein',
@@ -162,8 +163,8 @@ def insert_into_chain_table(struct: gemmi.Structure, doc: cif.Document, sequence
         if len(chain.get_polymer()) == 0:
             start_pos = end_pos = None
         else:
-            start_pos = sequence.chain_start_indices[chain]
-            end_pos = sequence.chain_end_indices[chain]
+            start_pos = sequence.chain_start_indices[chain.name]
+            end_pos = sequence.chain_end_indices[chain.name]
         annotated_sequence = chain.get_polymer().make_one_letter_sequence()
         unannotated_sequence = sequence.get_chain_sequence(chain.name)
         data.append((id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
@@ -173,7 +174,7 @@ def insert_into_chain_table(struct: gemmi.Structure, doc: cif.Document, sequence
 def insert_into_helix_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> HelixData:
     data = []
     id = struct.info["_entry.id"]
-    for helix in struct.helices:
+    for index, helix in enumerate(struct.helices):
         sequence_code = sequence.get_helix_sequence(helix, struct)
         chain = struct[0].find_cra(helix.start).chain
         end_chain = struct[0].find_cra(helix.end).chain
@@ -182,9 +183,10 @@ def insert_into_helix_table(struct: gemmi.Structure, doc: cif.Document, sequence
         start_pos = chain[start_auth_label][0].label_seq
         end_pos = end_chain[end_auth_label][0].label_seq
         if chain != end_chain:
-            data.append((id, chain.name + ' ' + end_chain.name, sequence_code, start_pos, end_pos, helix.length))
+            chain_names = chain.name + ' ' + end_chain.name
+            data.append((id, index + 1, chain_names, sequence_code, start_pos, end_pos, helix.length))
         else:
-            data.append((id, chain.name, sequence_code, start_pos, end_pos, helix.length))
+            data.append((id, index + 1, chain.name, sequence_code, start_pos, end_pos, helix.length))
     return data
         
 def insert_into_sheet_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> SheetData:
@@ -207,4 +209,73 @@ def insert_into_strand_table(struct: gemmi.Structure, doc: cif.Document, sequenc
             start_pos = chain[start_auth_label][0].label_seq
             end_pos = end_chain[end_auth_label][0].label_seq
             data.append((id, sheet.name, strand.name, chain.name, sequence_code, start_pos, end_pos, length))
+    return data
+
+def insert_into_coil_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> CoilData:
+    data = []
+    secondary_structures = []
+    id = struct.info["_entry.id"]
+    for index, helix in enumerate(struct.helices):
+        chain = struct[0].find_cra(helix.start).chain
+        end_chain = struct[0].find_cra(helix.end).chain
+        start_auth_label = str(helix.start.res_id.seqid.num) + helix.start.res_id.seqid.icode
+        end_auth_label = str(helix.end.res_id.seqid.num) + helix.end.res_id.seqid.icode
+        start_pos = chain[start_auth_label][0].label_seq
+        end_pos = end_chain[end_auth_label][0].label_seq
+        left = min(start_pos, end_pos)
+        right = max(start_pos, end_pos)
+        if chain != end_chain:
+            print('Helix ' + str(index) + ' in protein ' + id\
+                               + ' is ill-defined. Unable to extract random coils.')
+            return data
+        else:
+            secondary_structures.append((chain.name, left, right))
+    
+    for sheet in struct.sheets:
+        for strand in sheet.strands:
+            chain = struct[0].find_cra(strand.start).chain
+            end_chain = struct[0].find_cra(strand.end).chain
+            start_auth_label = str(strand.start.res_id.seqid.num) + strand.start.res_id.seqid.icode
+            end_auth_label = str(strand.end.res_id.seqid.num) + strand.end.res_id.seqid.icode
+            start_pos = chain[start_auth_label][0].label_seq
+            end_pos = end_chain[end_auth_label][0].label_seq
+            left = min(start_pos, end_pos)
+            right = max(start_pos, end_pos)
+            if chain != end_chain:
+                print('Strand ' + strand.name + 'in sheet ' + sheet.name + ' in protein ' + id\
+                                + ' is ill-defined. Unable to extract random coils.')
+                return data
+            else:
+                secondary_structures.append((chain.name, left, right))
+        
+    secondary_structures.sort(key=lambda x : (len(x[0]), x[0], x[1], x[2]))
+    coil_id = 0
+    ss_index = 0
+    for chain in sequence.chain_start_indices:
+        while(True):
+            if ss_index == 0 or secondary_structures[ss_index - 1][0] != chain:
+                coil_start = sequence.get_chain_start_position(chain)
+            else:
+                coil_start = max(coil_start, secondary_structures[ss_index - 1][2] + 1)
+            if ss_index >= len(secondary_structures) or secondary_structures[ss_index][0] != chain:
+                coil_end = sequence.get_chain_end_position(chain)
+            else:
+                coil_end = secondary_structures[ss_index][1] - 1
+            
+            if coil_end <= coil_start:
+                if ss_index < len(secondary_structures) and secondary_structures[ss_index][0] == chain:
+                    ss_index += 1
+                    continue
+                else:
+                    break
+            coil_sequence = sequence.get_chain_subsequence(chain, coil_start, coil_end)[0]
+            length = len(coil_sequence)
+            data.append((id, coil_id, chain, coil_sequence, coil_start, coil_end, length))
+            coil_id += 1
+
+            if ss_index < len(secondary_structures) and secondary_structures[ss_index][0] == chain:
+                ss_index += 1
+            else:
+                break
+    
     return data

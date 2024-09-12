@@ -24,6 +24,6 @@ def insert_file(cur: sqlite3.Cursor, file_path: str, verbose = True):
                     cur.execute(statement, data)
     except Exception as error:
         print(struct.name)
-        print(error)
+        print(error)    
 
 # def update_database()

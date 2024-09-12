@@ -54,8 +54,9 @@ subchain_table_attributes = Attributes[extract.SubchainData]\
 subchain_table = Table("subchains", subchain_table_attributes, extract.insert_into_subchain_table)
 
 helix_table_attributes = Attributes[extract.HelixData]\
-    ([entry_id, chain_id, ("helix_sequence", "VARCHAR"), start_position, end_position, length],
-      primary_keys=["entry_id", "chain_id", "start_position", "end_position"],
+    ([entry_id, ("helix_id", "INT"), chain_id, ("helix_sequence", "VARCHAR"),
+      start_position, end_position, length],
+      primary_keys=["entry_id", "helix_id", "chain_id", "start_position", "end_position"],
       foreign_keys={"entry_id": ("main", "entry_id"), "chain_id": ("chains", "chain_id")})
 helix_table = Table("helices", helix_table_attributes, extract.insert_into_helix_table)
 
@@ -73,8 +74,15 @@ strand_table_attributes = Attributes[extract.StrandData]\
                     "chain_id": ("chains", "chain_id")})
 strand_table = Table("strands", strand_table_attributes, extract.insert_into_strand_table)
 
+coil_table_attributes = Attributes[extract.CoilData]\
+    ([entry_id, ("coil_id", "INT"), chain_id, ("coil_sequence", "VARCHAR"),
+      start_position, end_position, length],
+      primary_keys=["entry_id", "coil_id"],
+      foreign_keys={"entry_id": ("main", "entry_id"), "chain_id": ("chains", "chain_id")})
+coil_table = Table("coils", coil_table_attributes, extract.insert_into_coil_table)
+
 table_schemas: list[Table] = [main_table, experimental_table, entity_table, chain_table,
-                              subchain_table, helix_table, sheet_table, strand_table]
+                              subchain_table, helix_table, sheet_table, strand_table, coil_table]
 
 def insert_into_table(cur: sqlite3.Cursor, table_name: str, data):
     """

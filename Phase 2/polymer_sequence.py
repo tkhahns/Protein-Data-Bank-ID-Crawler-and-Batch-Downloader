@@ -38,6 +38,8 @@ class PolymerSequence:
                 self.chain_start_indices[last_chain] = index
             index += 1
         self.chain_end_indices[last_chain] = index - 1
+        self.chain_start_indices = dict(sorted(self.chain_start_indices.items(), key=lambda x : (len(x), x)))
+        self.chain_end_indices = dict(sorted(self.chain_end_indices.items(), key=lambda x : (len(x), x)))
 
         monomer_sequence = [monomer.name for monomer in self.sequence]
         self.one_letter_code = sequence_3to1(monomer_sequence)
@@ -85,6 +87,12 @@ class PolymerSequence:
         if end_index == 0:
             return self.one_letter_code[start_index::-1], -start_index - 1
         return self.one_letter_code[start_index:end_index-1:-1], end_index - start_index - 1
+    
+    def get_chain_start_position(self, chain: str) -> int:
+        return self.sequence[self.chain_start_indices[chain]].seq_id
+    
+    def get_chain_end_position(self, chain: str) -> int:
+        return self.sequence[self.chain_end_indices[chain]].seq_id
     
     def get_helix_sequence(self, helix: gemmi.Helix, struct: gemmi.Structure) -> str:
         chain = struct[0].find_cra(helix.start).chain
