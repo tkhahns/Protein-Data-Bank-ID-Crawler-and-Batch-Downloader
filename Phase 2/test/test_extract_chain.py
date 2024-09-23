@@ -1,6 +1,6 @@
 """
 This script contains unit tests for testing methods in extract.py or polymer_sequence.py 
-for complex types, helices, strands and sheets. 
+for complex types and chains. 
 Make sure to run from the Phase 2 directory for the correct relative paths.
 
 To run a specific test module, use the command "pytest test/test_something.py".
@@ -16,7 +16,6 @@ import extract
 import polymer_sequence
 
 
-#@pytest.mark.skip(reason=None)
 @pytest.mark.parametrize("complex_type", extract.ComplexType)
 def test_get_complex_type(complex_type, mock_structure, mock_entities):
     mock_structure.entities = mock_entities(complex_type=complex_type)
@@ -26,9 +25,6 @@ def test_get_complex_type(complex_type, mock_structure, mock_entities):
     assert(result == expected)
 
 
-@pytest.mark.skip(reason=None)
-@patch.dict("polymer_sequence.PolymerSequence.chain_start_indices", {'A': 1})
-@patch.dict("polymer_sequence.PolymerSequence.chain_end_indices", {'A': 11})
 def test_insert_into_chain_table(mock_structure, mock_chain):
     """
         Tests the insert_into_chain_table function. 
@@ -39,6 +35,14 @@ def test_insert_into_chain_table(mock_structure, mock_chain):
     mock_doc = MagicMock(spec=cif.Document)
     mock_polymer_sequence = MagicMock(spec=polymer_sequence.PolymerSequence)
 
+    # create mock dictionaries for start and end indices
+    mock_polymer_sequence.chain_start_indices = MagicMock()
+    mock_polymer_sequence.chain_end_indices = MagicMock()
+
+    # set up return values for mock dictionaries 
+    mock_polymer_sequence.chain_start_indices.__getitem__.side_effect = lambda key: {'A': 0}[key]
+    mock_polymer_sequence.chain_end_indices.__getitem__.side_effect = lambda key: {'A': 10}[key]
+
     # mock unannotated sequence
     mock_polymer_sequence.get_chain_sequence.return_value = 'ARNDCQEGHIX'
 
@@ -48,9 +52,13 @@ def test_insert_into_chain_table(mock_structure, mock_chain):
         ('1A00', 'A', 'A A', 'ARNDCQEGHIX', 'ARNDCQEGHIX', 0, 10, 11)
     ]
 
+    # check if start and end indices dictionaries are accessed with correct keys
+    mock_polymer_sequence.chain_start_indices.__getitem__.assert_called_once_with('A')
+    mock_polymer_sequence.chain_end_indices.__getitem__.assert_called_once_with('A')
+
     assert result == expected
 
-#@pytest.mark.skip(reason=None)
+
 def test_insert_into_chain_table_start_end_pos_are_none(mock_structure, mock_empty_chain):
     """
         Tests that the insert_into_chain_table function returns None for start and end positions
@@ -74,7 +82,6 @@ def test_insert_into_chain_table_start_end_pos_are_none(mock_structure, mock_emp
     assert result == expected
 
 
-#@pytest.mark.skip(reason=None)
 def test_get_chain_sequence(mock_polymer_sequence):
     mock_chain_name = 'A'
     result_sequence = mock_polymer_sequence.get_chain_sequence(mock_chain_name)
@@ -85,7 +92,6 @@ def test_get_chain_sequence(mock_polymer_sequence):
     assert result_sequence == expected_sequence
 
 
-#@pytest.mark.skip(reason=None)
 def test_get_chain_sequence_chain_not_in_start_indices(mock_polymer_sequence):
     mock_chain_name = 'C'
     result_sequence = mock_polymer_sequence.get_chain_sequence(mock_chain_name)

@@ -1,7 +1,7 @@
 import pytest
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 import gemmi 
-from gemmi import cif, Entity, EntityType, PolymerType, EntityList
+from gemmi import cif, EntityType, PolymerType, EntityList
 
 from polymer_sequence import PolymerSequence
 from extract import ComplexType
@@ -32,7 +32,7 @@ def mock_entities(mock_entity):
     def create_entities_with_complex_type(complex_type):
         entities = EntityList()
 
-        # arguments for different entities given a complex type
+        # arguments for creating different entities given a complex type
         entity_args = {
             ComplexType.Other: [
                 (EntityType.Unknown,)
@@ -97,13 +97,8 @@ def mock_subchain():
 def mock_polymer():
     mock_polymer = MagicMock(spec=gemmi.ResidueSpan)
 
-    first_residue = MagicMock(spec=gemmi.Residue)
-    last_residue = MagicMock(spec=gemmi.Residue)
-    
-    type(first_residue).label_seq = PropertyMock(return_value=1)
-    type(last_residue).label_seq = PropertyMock(return_value=11)
-
-    # mock_polymer.__getitem__.side_effect = [first_residue, last_residue] 
+    # set up return value for len(mock_polymer)
+    mock_polymer.__len__.return_value = 11 
     mock_polymer.make_one_letter_sequence.return_value = 'ARNDCQEGHIX'
     mock_polymer.length.return_value = 11
 
@@ -113,6 +108,9 @@ def mock_polymer():
 @pytest.fixture 
 def mock_empty_polymer():
     mock_polymer = MagicMock(spec=gemmi.ResidueSpan)
+
+    # set up return value for len(mock_polymer)
+    mock_polymer.__len__.return_value = 0
     mock_polymer.make_one_letter_sequence.return_value = ''  
     mock_polymer.length.return_value = 0  
 
@@ -144,15 +142,15 @@ def mock_empty_chain(mock_subchain, mock_empty_polymer):
 @pytest.fixture
 def mock_polymer_sequence():
     mock_doc = MagicMock(spec=cif.Document)
-    polymer_sequence = PolymerSequence(mock_doc)
+    mock_polymer_sequence = PolymerSequence(mock_doc)
 
-    polymer_sequence.one_letter_code = MagicMock()
-    polymer_sequence.one_letter_code.__getitem__.return_value = 'ARNDCQEGHIX'
+    mock_polymer_sequence.one_letter_code = MagicMock()
+    mock_polymer_sequence.one_letter_code.__getitem__.return_value = 'ARNDCQEGHIX'
 
-    polymer_sequence.chain_start_indices = {'A': 0, 'B': 0}
-    polymer_sequence.chain_end_indices = {'A': len(polymer_sequence.one_letter_code) - 1}
+    mock_polymer_sequence.chain_start_indices= {'A': 0, 'B': 0}
+    mock_polymer_sequence.chain_end_indices= {'A': 10}
 
-    return polymer_sequence
+    return mock_polymer_sequence
 
 
 @pytest.fixture

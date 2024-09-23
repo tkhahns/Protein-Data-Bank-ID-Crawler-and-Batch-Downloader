@@ -1,3 +1,13 @@
+"""
+This script contains unit tests for testing methods in extract.py or polymer_sequence.py 
+for helices, strands, and sheets.
+Make sure to run from the Phase 2 directory for the correct relative paths.
+
+To run a specific test module, use the command "pytest test/test_something.py".
+To run all tests in the test directory, use the command "pytest test/".
+Output verbosity can be adjusted by using the relevant flags in the command (e.g. -q, -v, -vv).
+"""
+
 import pytest
 from unittest.mock import patch, MagicMock
 import gemmi 
