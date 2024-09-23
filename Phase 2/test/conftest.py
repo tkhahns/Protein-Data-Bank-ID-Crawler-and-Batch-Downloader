@@ -1,15 +1,89 @@
 import pytest
 from unittest.mock import MagicMock, PropertyMock
 import gemmi 
-from gemmi import cif
+from gemmi import cif, Entity, EntityType, PolymerType, EntityList
 
 from polymer_sequence import PolymerSequence
+from extract import ComplexType
 
 @pytest.fixture
 def mock_structure():
     mock_structure = MagicMock(spec=gemmi.Structure)
     mock_structure.info = {'_entry.id': '1A00'}
     return mock_structure
+
+
+@pytest.fixture
+def mock_entity():
+    def create_mock_entity(entity_type, polymer_type = None, subchains = []):
+        mock_entity = gemmi.Entity("")
+        mock_entity.entity_type = entity_type
+        if polymer_type:
+            mock_entity.polymer_type = polymer_type
+        mock_entity.subchains = subchains
+
+        return mock_entity
+    
+    return create_mock_entity
+
+
+@pytest.fixture
+def mock_entities(mock_entity):
+    def create_entities_with_complex_type(complex_type):
+        entities = EntityList()
+
+        # arguments for different entities given a complex type
+        entity_args = {
+            ComplexType.Other: [
+                (EntityType.Unknown,)
+            ],
+            ComplexType.NucleicAcid : [
+                (EntityType.Polymer, PolymerType.Dna), 
+                (EntityType.Polymer, PolymerType.Rna), 
+                (EntityType.Polymer, PolymerType.DnaRnaHybrid),
+                (EntityType.Polymer, PolymerType.Pna)
+            ],
+            ComplexType.Saccharide: [
+                (EntityType.Branched,),
+                (EntityType.Polymer, PolymerType.SaccharideD),
+                (EntityType.Polymer, PolymerType.SaccharideL)
+            ],
+            ComplexType.SingleProtein: [
+                (EntityType.Polymer, PolymerType.PeptideL, ["A"])
+            ],
+            ComplexType.Proteinmer: [
+                (EntityType.Polymer, PolymerType.PeptideL, ["A", "B"])
+            ], 
+            ComplexType.ComplexProtein: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.PeptideL)
+            ],
+            ComplexType.ProteinNA: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.Dna)
+            ],
+            ComplexType.ProteinSaccharide: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.SaccharideD)
+            ],
+            ComplexType.SaccharideNA: [
+                (EntityType.Polymer, PolymerType.SaccharideD),
+                (EntityType.Polymer, PolymerType.Dna)
+            ], 
+            ComplexType.ProteinSaccharideNA: [
+                (EntityType.Polymer, PolymerType.PeptideD),
+                (EntityType.Polymer, PolymerType.SaccharideD),
+                (EntityType.Polymer, PolymerType.Dna)
+            ]    
+        }
+
+        for args in entity_args[complex_type]:
+            entities.append(mock_entity(*args))
+
+        return entities 
+
+    return create_entities_with_complex_type
+
 
 @pytest.fixture
 def mock_subchain():
@@ -18,12 +92,13 @@ def mock_subchain():
 
     return mock_subchain
 
+
 @pytest.fixture
 def mock_polymer():
-    mock_polymer = MagicMock()
+    mock_polymer = MagicMock(spec=gemmi.ResidueSpan)
 
-    first_residue = MagicMock()
-    last_residue = MagicMock()
+    first_residue = MagicMock(spec=gemmi.Residue)
+    last_residue = MagicMock(spec=gemmi.Residue)
     
     type(first_residue).label_seq = PropertyMock(return_value=1)
     type(last_residue).label_seq = PropertyMock(return_value=11)
@@ -33,6 +108,16 @@ def mock_polymer():
     mock_polymer.length.return_value = 11
 
     return mock_polymer
+
+
+@pytest.fixture 
+def mock_empty_polymer():
+    mock_polymer = MagicMock(spec=gemmi.ResidueSpan)
+    mock_polymer.make_one_letter_sequence.return_value = ''  
+    mock_polymer.length.return_value = 0  
+
+    return mock_polymer
+
 
 @pytest.fixture
 def mock_chain(mock_subchain, mock_polymer):
@@ -44,13 +129,6 @@ def mock_chain(mock_subchain, mock_polymer):
 
     return mock_chain
 
-@pytest.fixture 
-def mock_empty_polymer():
-    mock_polymer = MagicMock(spec=gemmi.ResidueSpan)
-    mock_polymer.make_one_letter_sequence.return_value = ''  
-    mock_polymer.length.return_value = 0  
-
-    return mock_polymer
 
 @pytest.fixture
 def mock_empty_chain(mock_subchain, mock_empty_polymer):
@@ -61,6 +139,7 @@ def mock_empty_chain(mock_subchain, mock_empty_polymer):
     mock_chain.subchains.return_value = [mock_subchain]
 
     return mock_chain
+
 
 @pytest.fixture
 def mock_polymer_sequence():
@@ -75,6 +154,7 @@ def mock_polymer_sequence():
 
     return polymer_sequence
 
+
 @pytest.fixture
 def mock_helix():
     mock_helix = MagicMock(spec=gemmi.Helix)
@@ -84,6 +164,7 @@ def mock_helix():
     mock_helix.end.res_id.seqid.icode = ''
 
     return mock_helix
+
 
 @pytest.fixture
 def mock_strand():
