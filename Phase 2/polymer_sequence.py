@@ -69,7 +69,7 @@ class PolymerSequence:
         return self.binary_search(centre_index + 1, right_index, target_label)
     
     def get_chain_sequence(self, chain: str) -> str:
-        if chain not in self.chain_start_indices:
+        if chain not in self.chain_start_indices or chain not in self.chain_end_indices:
             return ''
         start = self.chain_start_indices[chain]
         end = self.chain_end_indices[chain]
@@ -157,5 +157,5 @@ def letter_code_3to1(polymer: str) -> str:
         return three_to_one[polymer]
     return 'X'
 
-def sequence_3to1(sequence: list[str], start: int = 0, end: int = -1) -> str:
-    return ''.join([letter_code_3to1(polymer) for polymer in sequence[start:end]])
+def sequence_3to1(sequence: list[str]) -> str:
+    return ''.join([letter_code_3to1(polymer) for polymer in sequence])
