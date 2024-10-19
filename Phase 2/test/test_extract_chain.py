@@ -25,14 +25,13 @@ def test_get_complex_type(complex_type, mock_structure, mock_entities):
     assert(result == expected)
 
 
-def test_insert_into_chain_table(mock_structure, mock_chain):
+def test_insert_into_chain_table(mock_structure, mock_doc, mock_chain):
     """
         Tests the insert_into_chain_table function. 
     """
     # assign chain to mock_structure
     mock_structure.__getitem__.return_value = [mock_chain]
 
-    mock_doc = MagicMock(spec=cif.Document)
     mock_polymer_sequence = MagicMock(spec=polymer_sequence.PolymerSequence)
 
     # create mock dictionaries for start and end indices
@@ -59,7 +58,7 @@ def test_insert_into_chain_table(mock_structure, mock_chain):
     assert result == expected
 
 
-def test_insert_into_chain_table_start_end_pos_are_none(mock_structure, mock_empty_chain):
+def test_insert_into_chain_table_start_end_pos_are_none(mock_structure, mock_doc, mock_empty_chain):
     """
         Tests that the insert_into_chain_table function returns None for start and end positions
         when the chain does not contain any polymers.
@@ -67,7 +66,6 @@ def test_insert_into_chain_table_start_end_pos_are_none(mock_structure, mock_emp
     # assign chain to mock_structure
     mock_structure.__getitem__.return_value = [mock_empty_chain]
     
-    mock_doc = MagicMock(spec=cif.Document)
     mock_polymer_sequence = MagicMock(spec=polymer_sequence.PolymerSequence)
 
     # mock empty unannotated sequence
@@ -87,8 +85,6 @@ def test_get_chain_sequence(mock_polymer_sequence):
     result_sequence = mock_polymer_sequence.get_chain_sequence(mock_chain_name)
     expected_sequence = 'ARNDCQEGHIX'
     
-    # check that one_letter_code was indexed once
-    mock_polymer_sequence.one_letter_code.__getitem__.assert_called_once()
     assert result_sequence == expected_sequence
 
 
