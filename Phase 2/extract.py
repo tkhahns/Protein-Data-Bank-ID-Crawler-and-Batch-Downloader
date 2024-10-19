@@ -163,8 +163,8 @@ def insert_into_chain_table(struct: gemmi.Structure, doc: cif.Document, sequence
         if len(chain.get_polymer()) == 0:
             start_pos = end_pos = None
         else:
-            start_pos = sequence.chain_start_indices[chain.name]
-            end_pos = sequence.chain_end_indices[chain.name]
+            start_pos = sequence.get_chain_start_position(chain.name)
+            end_pos = sequence.get_chain_end_position(chain.name)
         annotated_sequence = chain.get_polymer().make_one_letter_sequence()
         unannotated_sequence = sequence.get_chain_sequence(chain.name)
         data.append((id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
