@@ -2,7 +2,7 @@
 This script contains integration tests for validating data in the database against data extracted by extract methods. 
 Make sure to run from the Phase 2 directory for the correct relative paths.
 
-To run a specific test module, use the command "pytest test/test_something.py"
+To run a specific test module, use the command "pytest test/integration/test_something.py"
 To run all tests in the test directory, use the command "pytest test/" 
 Output verbosity can be adjusted by using the relevant flags in the command (e.g. -q, -v, -vv).
 """
@@ -19,6 +19,7 @@ from typing import Generator, Callable, TypeVarTuple
 
 import commands
 import extract
+from polymer_sequence import PolymerSequence
 
 entry_ids = [
     '146D','178D','1A0A','1A0C','1A0F','1A0Q','1A1C','1A3I','1JKD','1LZH','1MM4','1PP3',
@@ -51,17 +52,18 @@ def setup_database(rootdir: str) -> Generator[sqlite3.Cursor, None, None]:
     # Close database connection after all tests are run
     con.close() 
 
-def read_file(rootdir: str, entry_id: str) -> tuple[gemmi.Structure, cif.Document]:
-    """Read the structure and document for a given entry id."""
+def read_file(rootdir: str, entry_id: str) -> tuple[gemmi.Structure, cif.Document, PolymerSequence]:
+    """Read the structure, document and polymer sequence for a given entry id."""
     path = os.path.join(rootdir, f'*{entry_id.lower()}*')
     file_path = glob.glob(path)[0]
 
     struct = gemmi.read_structure(file_path)
     doc = cif.read(file_path)
+    sequence = PolymerSequence(doc)
 
-    return struct, doc
+    return struct, doc, sequence
 
-def query_data(cur: sqlite3.Cursor, entry_id: str, table: str, col: str ="*") -> sqlite3.Cursor:
+def query_data(cur: sqlite3.Cursor, entry_id: str, table: str, col: str = "*") -> sqlite3.Cursor:
     """Query data from the database for a given entry id, table and columns (default all)."""
     query = f"SELECT {col} FROM {table} WHERE entry_id = ?"
     res = cur.execute(query, (entry_id,))
@@ -69,15 +71,21 @@ def query_data(cur: sqlite3.Cursor, entry_id: str, table: str, col: str ="*") ->
 
 def validate_data(entry_id: str, rootdir: str, cur: sqlite3.Cursor, table: str, extract_func: Callable[[gemmi.Structure, cif.Document], list[tuple[*AttributeTypes]]]):
     """Validate data in the database against data extracted using the given function."""
-    struct, doc = read_file(rootdir, entry_id)
+    struct, doc, sequence = read_file(rootdir, entry_id)
     result = query_data(cur, entry_id, table).fetchall()
-    expected = extract_func(struct, doc)
+    expected = extract_func(struct, doc, sequence)
     assert sorted(result) == sorted(expected)
 
-@pytest.mark.parametrize("entry_id", entry_ids)  # test runs multiple times for each entry_id
+@pytest.mark.parametrize("entry_id", entry_ids)  # run test for each entry_id
 def test_main_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
     cur = setup_database
     validate_data(entry_id, rootdir, cur, "main", extract.insert_into_main_table)
+
+@pytest.mark.xfail(reason="extracted data are strings, not floats")
+@pytest.mark.parametrize("entry_id", entry_ids)  
+def test_experimental_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
+    cur = setup_database
+    validate_data(entry_id, rootdir, cur, "experimental", extract.insert_into_experimental_table)
 
 @pytest.mark.parametrize("entry_id", entry_ids)  
 def test_entity_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
@@ -88,6 +96,11 @@ def test_entity_table(entry_id: str, rootdir: str, setup_database: sqlite3.Curso
 def test_subchain_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
     cur = setup_database
     validate_data(entry_id, rootdir, cur, "subchains", extract.insert_into_subchain_table)
+
+@pytest.mark.parametrize("entry_id", entry_ids)  
+def test_chain_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
+    cur = setup_database
+    validate_data(entry_id, rootdir, cur, "chains", extract.insert_into_chain_table)
 
 @pytest.mark.parametrize("entry_id", entry_ids)  
 def test_helix_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
@@ -103,3 +116,8 @@ def test_sheet_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor
 def test_strand_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
     cur = setup_database
     validate_data(entry_id, rootdir, cur, "strands", extract.insert_into_strand_table)
+
+@pytest.mark.parametrize("entry_id", entry_ids)  
+def test_coil_table(entry_id: str, rootdir: str, setup_database: sqlite3.Cursor):
+    cur = setup_database
+    validate_data(entry_id, rootdir, cur, "coils", extract.insert_into_coil_table)

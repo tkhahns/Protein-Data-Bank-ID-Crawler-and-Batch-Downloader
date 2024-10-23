@@ -3,7 +3,7 @@ This script contains integration tests for validating data extracted by extract 
 against data fetched from PDB's RESTful API. 
 Make sure to run from the Phase 2 directory for the correct relative paths.
 
-To run a specific test module, use the command "pytest test/test_something.py".
+To run a specific test module, use the command "pytest test/integration/test_something.py".
 To run all tests in the test directory, use the command "pytest test/".
 Output verbosity can be adjusted by using the relevant flags in the command (e.g. -q, -v, -vv).
 """

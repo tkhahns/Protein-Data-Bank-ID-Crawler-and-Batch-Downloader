@@ -9,18 +9,27 @@ from extract import ComplexType
 @pytest.fixture
 def mock_structure():
     mock_structure = MagicMock(spec=gemmi.Structure)
-    mock_structure.info = {'_entry.id': '1A00'}
+    mock_structure.info = {'_entry.id': '1A00', '_struct.title': 'mock_title', '_cell.Z_PDB': '1'}
+
+    cell = MagicMock(spec=gemmi.UnitCell)
+    cell.a, cell.b, cell.c = (1.0, 1.0, 1.0)
+    cell.alpha, cell.beta, cell.gamma = (90.0, 90.0, 90.0)
+    mock_structure.cell = cell
+
+    mock_structure.spacegroup_hm = 'P 1'
+
     return mock_structure
 
 @pytest.fixture
 def mock_doc():
     mock_doc = MagicMock(spec=cif.Document)
     return mock_doc
-
+ 
 @pytest.fixture
 def mock_entity():
     def create_mock_entity(entity_type, polymer_type = None, subchains = []):
         mock_entity = gemmi.Entity("")
+        mock_entity.name = '1'
         mock_entity.entity_type = entity_type
         if polymer_type:
             mock_entity.polymer_type = polymer_type
@@ -93,6 +102,8 @@ def mock_entities(mock_entity):
 def mock_subchain():
     mock_subchain = MagicMock(spec=gemmi.ResidueSpan)
     mock_subchain.subchain_id.return_value = 'A'
+    mock_subchain.make_one_letter_sequence.return_value = 'ARNDCQEGHIX'
+    mock_subchain.length.return_value = 11
 
     return mock_subchain
 
@@ -147,11 +158,14 @@ def mock_empty_chain(mock_subchain, mock_empty_polymer):
 def mock_polymer_sequence():
     mock_doc = MagicMock(spec=cif.Document)
     mock_polymer_sequence = PolymerSequence(mock_doc)
-
+    
     mock_polymer_sequence.one_letter_code = 'ARNDCQEGHIX'
 
     mock_polymer_sequence.chain_start_indices = {'A': 0, 'B': 0}
     mock_polymer_sequence.chain_end_indices = {'A': 10}
+
+    sequence = [(0, 0, 1), (0, 0, 3), (0, 0, 5), (0, 0, 7), (0, 0, 9)]
+    mock_polymer_sequence.sequence = sequence
 
     return mock_polymer_sequence
 
