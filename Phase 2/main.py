@@ -15,7 +15,7 @@ if __name__ == "__main__":
     for subdir, dirs, files in tqdm(os.walk(rootdir)):
         for file in files:
             path = os.path.join(subdir, file)
-            if re.search('.*\.cif.*', path):
+            if re.search('./*.cif.*', path):
                 commands.insert_file(cur, path, verbose=verbose)
         con.commit()
 
