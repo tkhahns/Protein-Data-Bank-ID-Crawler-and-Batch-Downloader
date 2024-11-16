@@ -16,7 +16,7 @@ if __name__ == "__main__":
         for file in files:
             path = os.path.join(subdir, file)
             if re.search('./*.cif.*', path):
-                commands.insert_file(cur, path, verbose=verbose)
+                commands.check_file(cur, path, verbose=verbose)
         con.commit()
 
     con.close()
