@@ -22,15 +22,17 @@
 
  The SQL tables produced have the following schema. **Bold** indicates a primary key, *italics* indicate foreign key, and ***both*** indicate foreign primary key.
 
- | Table name | Attributes |
- | ---------- | ---------- |
- | main       | **entry_id**, complex_type, source_organism, chains, space_group, Z_value, a, b, c, alpha, beta, gamma |
- | entities   | ***entry_id***, **entity_id**, entity_name, entity_type, polymer_type, subchains |
- | subchains  | ***entry_id***, *entity_id*, **subchain_id**, *chain_id*, chain_sequence, start_position, end_position, length |
- | chains     | ***entry_id***, **chain_id**, subchains, chain_sequence, start_position, end_position, length |
- | helices    | ***entry_id***, ***chain_id***, helix_sequence, **start_position**, **end_position**, length |
- | sheets     | ***entry_id***, **sheet_id**, number_strands, sense_sequence |
- | strands    | ***entry_id***, ***sheet_id***, **strand_id**, *chain_id*, strand_sequence, start_position, end_position, length |
+ | Table name   | Attributes |
+ | ------------ | ---------- |
+ | main         | **entry_id**, complex_type, source_organism, chains, revision_date, space_group, Z_value, a, b, c, alpha, beta, gamma |
+ | experimental | ***entry_id***, Matthews_coefficient, percent_solvent_content, crystal_growth_method, crystal_growth_procedure, crystal_growth_apparatus, crystal_growth_atmosphere, crystal_growth_pH, crystal_growth,temperature |
+ | entities     | ***entry_id***, **entity_id**, entity_name, entity_type, polymer_type, subchains |
+ | chains       | ***entry_id***, **chain_id**, subchains, contains_experimentally_unconfirmed_residues, chain_sequence, start_id, end_id, length |
+ | subchains    | ***entry_id***, *entity_id*, **subchain_id**, *chain_id*, contains_experimentally_unconfirmed_residues, subchain_sequence, start_id, end_id, length |
+ | helices      | ***entry_id***, **helix_id**, *chain_id*, contains_experimentally_unconfirmed_residues, helix_sequence, start_id, end_id, length |
+ | sheets       | ***entry_id***, **sheet_id**, number_strands, sense_sequence |
+ | strands      | ***entry_id***, ***sheet_id***, **strand_id**, *chain_id*, contains_experimentally_unconfirmed_residues, strand_sequence, start_id, end_id, length |
+ | coils        | ***entry_id***, **coil_id**, *chain_id*, contains_experimentally_unconfirmed_residues, coil_sequence, annotated_coil_sequence, start_id, end_id, length |
 
  An explanation on how sequences work is warranted, despite how simple they may seem. All sequences (chain, subchain, helix or strand) consist of the one letter code of each amino acid residue of the chain/subchain/helix/strand span. Details about what each letter represents can be found [here](https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_chem_comp.one_letter_code.html). Besides the Latin alphabet letters, there can also be dashes in the sequence, representing either a segment of the sequence that hasn't been experimentally confirmed, or a link between two independent components of the span.
 
