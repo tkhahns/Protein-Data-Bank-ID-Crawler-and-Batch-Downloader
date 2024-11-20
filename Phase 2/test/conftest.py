@@ -2,14 +2,18 @@ import pytest
 from unittest.mock import MagicMock
 import gemmi 
 from gemmi import cif, EntityType, PolymerType, EntityList
+from sqlite3 import Cursor 
 
 from polymer_sequence import PolymerSequence
 from extract import ComplexType
+from table import Table
+from attributes import Attributes
 
 @pytest.fixture
 def mock_structure():
     mock_structure = MagicMock(spec=gemmi.Structure)
     mock_structure.info = {'_entry.id': '1A00', '_struct.title': 'mock_title', '_cell.Z_PDB': '1'}
+    mock_structure.name = "mock_name"
 
     cell = MagicMock(spec=gemmi.UnitCell)
     cell.a, cell.b, cell.c = (1.0, 1.0, 1.0)
@@ -211,3 +215,45 @@ def mock_strand():
     end.res_id.seqid.icode = ''
 
     return mock_strand
+
+
+@pytest.fixture
+def mock_cursor():
+    mock_cursor = MagicMock(spec=Cursor)
+    return mock_cursor
+
+
+@pytest.fixture
+def mock_table():
+    TEST_DATA = ('1A00', 'data1', 'data2')
+    TEST_STATEMENT = "INSERT INTO main VALUES(?, ?, ?)"
+
+    mock_table = MagicMock(spec=Table)
+    mock_table.name = "main"
+    mock_table.extract_data.return_value = [TEST_DATA]
+    mock_table.insert_row.return_value = TEST_STATEMENT 
+
+    return mock_table
+
+
+@pytest.fixture
+def test_table():
+    mock_attributes = MagicMock()
+    mock_attributes.__str__.return_value = "(id VARCHAR, a FLOAT,\
+        PRIMARY KEY(id, a), FOREIGN KEY (id) REFERENCES\
+                main(id))"
+    mock_attributes.match_columns.return_value = "col1 = value1, col2 = value2"
+    mock_attributes.match_primary_keys.return_value = "id = 1"
+
+    mock_extractor = MagicMock(return_value=[("test_id", "data1")])
+
+    return Table("test_table", mock_attributes, mock_extractor)
+
+
+@pytest.fixture
+def test_attributes():
+    test_attributes_pairs = [("id", "VARCHAR"), ("a", "FLOAT")]
+    test_primary_keys = ["id", "a"]
+    test_foreign_keys = {"id": ("main", "id")}
+
+    return Attributes(test_attributes_pairs, test_primary_keys, test_foreign_keys)

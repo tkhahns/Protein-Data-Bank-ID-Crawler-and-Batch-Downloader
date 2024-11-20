@@ -1,6 +1,5 @@
 """
-This script contains unit tests for testing methods in extract.py or polymer_sequence.py 
-for helices, strands, and sheets.
+This script contains unit tests for testing methods in polymer_sequence.py.
 Make sure to run from the Phase 2 directory for the correct relative paths.
 
 To run a specific test module, use the command "pytest test/unit/test_something.py".
