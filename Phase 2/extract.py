@@ -20,15 +20,15 @@ from gemmi import cif, EntityType, PolymerType
 from polymer_sequence import PolymerSequence
 from enum import Enum
 
-MainData = NewType("MainData", tuple[str, str, str, str, str, str, int, float, float, float, float, float, float])
+MainData = NewType("MainData", tuple[str, str, str, str, str, str, str, int, float, float, float, float, float, float])
 ExperimentalData = NewType("ExperimentalData", tuple[float, float, str, str, str, str, float, float])
 EntityData = NewType("EntityData", tuple[str, str, str, str, str, str])
-ChainData = NewType("ChainData", tuple[str, str, str, str, str, int, int, int])
-SubchainData = NewType("SubchainData", tuple[str, str, str, str, str, int, int, int])
-HelixData = NewType("HelixData", tuple[str, str, str, int, int, int])
+ChainData = NewType("ChainData", tuple[str, str, str, int, str, str, int, int, int])
+SubchainData = NewType("SubchainData", tuple[str, str, str, int, str, str, int, int, int])
+HelixData = NewType("HelixData", tuple[str, str, int, str, int, int, int])
 SheetData = NewType("SheetData", tuple[str, str, int, str])
-StrandData = NewType("StrandData", tuple[str, str, str, str, str, int, int, int])
-CoilData = NewType("CoilData", tuple[str, int, str, str, int, int, int])
+StrandData = NewType("StrandData", tuple[str, str, str, str, int, str, int, int, int])
+CoilData = NewType("CoilData", tuple[str, int, str, int, str, str, int, int, int])
 
 # Possible types of a complex, based on their entities
 ComplexType = Enum('ComplexType', ['Other', 'SingleProtein',
@@ -95,6 +95,9 @@ def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, sequence:
     if source_org is None:
         source_org = ''
     source_org = source_org.strip("'")
+    revision_date = block.find_value("_pdbx_audit_revision_history.revision_date")
+    if revision_date is None:
+        revision_date = block.find_loop("_pdbx_audit_revision_history.revision_date")[-1]
     complex_type = get_complex_type(struct)
     chains = [chain.name for chain in struct[0]]
     cell = struct.cell
@@ -102,8 +105,8 @@ def insert_into_main_table(struct: gemmi.Structure, doc: cif.Document, sequence:
     if "_cell.Z_PDB" in struct.info:
         z_value = int(struct.info["_cell.Z_PDB"])
     spacegroup = struct.spacegroup_hm
-    return [(id, complex_type.name, struct_title, source_org, ' '.join(chains), spacegroup, z_value,
-                 cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)]
+    return [(id, complex_type.name, struct_title, source_org, revision_date, ' '.join(chains),
+             spacegroup, z_value, cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)]
 
 def insert_into_experimental_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> ExperimentalData:
     id = struct.info["_entry.id"]
@@ -148,12 +151,13 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc: cif.Document, seque
                 if len(subchain) == 0:
                     continue
                 parent_chain = struct[0].get_parent_of(subchain[0])
-                start_pos = subchain[0].label_seq
-                end_pos = subchain[-1].label_seq
+                start_id = subchain[0].label_seq
+                end_id = subchain[-1].label_seq
                 annotated_sequence = subchain.make_one_letter_sequence()
-                unannotated_sequence = sequence.get_chain_subsequence(parent_chain.name, start_pos, end_pos)[0]
-                data.append((id, entity.name, subchain.subchain_id(), parent_chain.name,
-                        annotated_sequence, unannotated_sequence, start_pos, end_pos, subchain.length()))
+                unannotated_sequence = sequence.get_chain_subsequence(parent_chain.name, start_id, end_id)[0]
+                unconfirmed = sequence.contains_unconfirmed_residues(parent_chain.name, start_id, end_id)
+                data.append((id, entity.name, subchain.subchain_id(), parent_chain.name, unconfirmed,
+                        unannotated_sequence, annotated_sequence, start_id, end_id, subchain.length()))
     return data
 
 def insert_into_chain_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> ChainData:
@@ -161,32 +165,35 @@ def insert_into_chain_table(struct: gemmi.Structure, doc: cif.Document, sequence
     id = struct.info["_entry.id"]
     for chain in struct[0]:
         if len(chain.get_polymer()) == 0:
-            start_pos = end_pos = None
+            start_id = end_id = unconfirmed = None
         else:
-            start_pos = sequence.get_chain_start_position(chain.name)
-            end_pos = sequence.get_chain_end_position(chain.name)
+            start_id = sequence.get_chain_start_id(chain.name)
+            end_id = sequence.get_chain_end_id(chain.name)
+            unconfirmed = sequence.contains_unconfirmed_residues(chain.name, start_id, end_id)
+        subchains = ' '.join([subchain.subchain_id() for subchain in chain.subchains()])
         annotated_sequence = chain.get_polymer().make_one_letter_sequence()
         unannotated_sequence = sequence.get_chain_sequence(chain.name)
-        data.append((id, chain.name, ' '.join([subchain.subchain_id() for subchain in chain.subchains()]),
-                annotated_sequence, unannotated_sequence, start_pos, end_pos, chain.get_polymer().length()))
+        data.append((id, chain.name, subchains, unconfirmed,
+                unannotated_sequence, annotated_sequence, start_id, end_id, chain.get_polymer().length()))
     return data
         
 def insert_into_helix_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> HelixData:
     data = []
     id = struct.info["_entry.id"]
     for index, helix in enumerate(struct.helices):
-        sequence_code = sequence.get_helix_sequence(helix, struct)
+        helix_sequence = sequence.get_helix_sequence(helix, struct)
         chain = struct[0].find_cra(helix.start).chain
         end_chain = struct[0].find_cra(helix.end).chain
         start_auth_label = str(helix.start.res_id.seqid.num) + helix.start.res_id.seqid.icode
         end_auth_label = str(helix.end.res_id.seqid.num) + helix.end.res_id.seqid.icode
-        start_pos = chain[start_auth_label][0].label_seq
-        end_pos = end_chain[end_auth_label][0].label_seq
+        start_id = chain[start_auth_label][0].label_seq
+        end_id = end_chain[end_auth_label][0].label_seq
+        unconfirmed = sequence.contains_unconfirmed_residues(chain.name, start_id, end_id)
         if chain != end_chain:
             chain_names = chain.name + ' ' + end_chain.name
-            data.append((id, index + 1, chain_names, sequence_code, start_pos, end_pos, helix.length))
+            data.append((id, index + 1, chain_names, unconfirmed, helix_sequence, start_id, end_id, helix.length))
         else:
-            data.append((id, index + 1, chain.name, sequence_code, start_pos, end_pos, helix.length))
+            data.append((id, index + 1, chain.name, unconfirmed, helix_sequence, start_id, end_id, helix.length))
     return data
         
 def insert_into_sheet_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> SheetData:
@@ -201,29 +208,33 @@ def insert_into_strand_table(struct: gemmi.Structure, doc: cif.Document, sequenc
     id = struct.info["_entry.id"]
     for sheet in struct.sheets:
         for strand in sheet.strands:
-            sequence_code, length = sequence.get_strand_sequence(strand, struct)
+            strand_sequence, length = sequence.get_strand_sequence(strand, struct)
             chain = struct[0].find_cra(strand.start).chain
             end_chain = struct[0].find_cra(strand.end).chain
             start_auth_label = str(strand.start.res_id.seqid.num) + strand.start.res_id.seqid.icode
             end_auth_label = str(strand.end.res_id.seqid.num) + strand.end.res_id.seqid.icode
-            start_pos = chain[start_auth_label][0].label_seq
-            end_pos = end_chain[end_auth_label][0].label_seq
-            data.append((id, sheet.name, strand.name, chain.name, sequence_code, start_pos, end_pos, length))
+            start_id = chain[start_auth_label][0].label_seq
+            end_id = end_chain[end_auth_label][0].label_seq
+            unconfirmed = sequence.contains_unconfirmed_residues(chain.name, start_id, end_id)
+            data.append((id, sheet.name, strand.name, chain.name, unconfirmed,
+                         strand_sequence, start_id, end_id, length))
     return data
 
 def insert_into_coil_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> CoilData:
     data = []
     secondary_structures = []
     id = struct.info["_entry.id"]
+
+    # We first gather all the helix and sheet secondary structures to 'remove' from the polymer sequences.
     for index, helix in enumerate(struct.helices):
         chain = struct[0].find_cra(helix.start).chain
         end_chain = struct[0].find_cra(helix.end).chain
         start_auth_label = str(helix.start.res_id.seqid.num) + helix.start.res_id.seqid.icode
         end_auth_label = str(helix.end.res_id.seqid.num) + helix.end.res_id.seqid.icode
-        start_pos = chain[start_auth_label][0].label_seq
-        end_pos = end_chain[end_auth_label][0].label_seq
-        left = min(start_pos, end_pos)
-        right = max(start_pos, end_pos)
+        start_id = chain[start_auth_label][0].label_seq
+        end_id = end_chain[end_auth_label][0].label_seq
+        left = min(start_id, end_id)
+        right = max(start_id, end_id)
         if chain != end_chain:
             print('Helix ' + str(index) + ' in protein ' + id\
                                + ' is ill-defined. Unable to extract random coils.')
@@ -237,42 +248,63 @@ def insert_into_coil_table(struct: gemmi.Structure, doc: cif.Document, sequence:
             end_chain = struct[0].find_cra(strand.end).chain
             start_auth_label = str(strand.start.res_id.seqid.num) + strand.start.res_id.seqid.icode
             end_auth_label = str(strand.end.res_id.seqid.num) + strand.end.res_id.seqid.icode
-            start_pos = chain[start_auth_label][0].label_seq
-            end_pos = end_chain[end_auth_label][0].label_seq
-            left = min(start_pos, end_pos)
-            right = max(start_pos, end_pos)
+            start_id = chain[start_auth_label][0].label_seq
+            end_id = end_chain[end_auth_label][0].label_seq
+            left = min(start_id, end_id)
+            right = max(start_id, end_id)
             if chain != end_chain:
                 print('Strand ' + strand.name + 'in sheet ' + sheet.name + ' in protein ' + id\
                                 + ' is ill-defined. Unable to extract random coils.')
                 return data
             else:
                 secondary_structures.append((chain.name, left, right))
-        
+    
+    # We want to scan through the secondary structures in order of chain, then by the starting sequence id.
     secondary_structures.sort(key=lambda x : (len(x[0]), x[0], x[1], x[2]))
-    coil_id = 0
-    ss_index = 0
+    coil_id = 1
+    ss_index = 0 # secondary structure index
     for chain in sequence.chain_start_indices:
+        chain_object = struct[0].find_chain(chain)
+        # If chain_object is None (which may happen if the whole chain is experimentally unconfirmed)
+        if not chain_object:
+            span = []
+            chain_string = ""
+        else:
+            span = list(chain_object.get_polymer().first_conformer())
+            chain_string = chain_object.get_polymer().make_one_letter_sequence()
+
+        # Keep scanning through chain, iterating through helices and sheets/strands in the chain
+        # until we run out of helices and sheets/strands that are in the chain.
+        # We add any random coils that are before the current helix or strand pointed to by ss_index,
+        # or add the rest of the random coils if there are no more helices or strands.
         while(True):
+            # if ss_index points to the first helix or strand in the chain
             if ss_index == 0 or secondary_structures[ss_index - 1][0] != chain:
-                coil_start = sequence.get_chain_start_position(chain)
+                coil_start = sequence.get_chain_start_id(chain)
             else:
+                # coil starts after any other helix or strand that has come before the current helix or strand.
                 coil_start = max(coil_start, secondary_structures[ss_index - 1][2] + 1)
+            # if ss_index points to the first helix or strand in a subsequent chain,
+            # or if we are out of helices or strands
             if ss_index >= len(secondary_structures) or secondary_structures[ss_index][0] != chain:
-                coil_end = sequence.get_chain_end_position(chain)
+                coil_end = sequence.get_chain_end_id(chain)
             else:
                 coil_end = secondary_structures[ss_index][1] - 1
             
-            if coil_end <= coil_start:
-                if ss_index < len(secondary_structures) and secondary_structures[ss_index][0] == chain:
-                    ss_index += 1
-                    continue
-                else:
-                    break
-            coil_sequence = sequence.get_chain_subsequence(chain, coil_start, coil_end)[0]
-            length = len(coil_sequence)
-            data.append((id, coil_id, chain, coil_sequence, coil_start, coil_end, length))
-            coil_id += 1
+            # In the case where the current helix/strand is at the start of a chain,
+            # or there is a previous helix/strand at the end of the chain,
+            # we get that coil_start = coil_end + 1, so we use this condition to ignore those cases.
+            if coil_start <= coil_end:
+                coil_sequence = sequence.get_chain_subsequence(chain, coil_start, coil_end)[0]
+                annotated_sequence = sequence.get_chain_annotated_subsequence(span, chain_string, coil_start, coil_end)
+                length = len(coil_sequence)
+                unconfirmed = sequence.contains_unconfirmed_residues(chain, coil_start, coil_end)
+                data.append((id, coil_id, chain, unconfirmed, coil_sequence, annotated_sequence,
+                             coil_start, coil_end, length))
+                coil_id += 1
 
+            # If the current helix or strand is in the chain, then there may be more coils after
+            # the current helix or strand, so we iterate to the next secondary structure.
             if ss_index < len(secondary_structures) and secondary_structures[ss_index][0] == chain:
                 ss_index += 1
             else:
