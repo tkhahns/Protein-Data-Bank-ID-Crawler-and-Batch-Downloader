@@ -148,9 +148,12 @@ class PolymerSequence:
         """
         chain_start = self.chain_start_indices[chain]
         chain_end = self.chain_end_indices[chain]
+
+        start_index = self.binary_search(chain_start, chain_end, start_id)
+        end_index = self.binary_search(chain_start, chain_end, end_id)
         
         for index in self.bad_indices:
-            if chain_start <= index <= chain_end:
+            if start_index <= index <= end_index:
                 return 1
         return 0
     

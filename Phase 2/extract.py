@@ -155,8 +155,7 @@ def insert_into_subchain_table(struct: gemmi.Structure, doc: cif.Document, seque
                 end_id = subchain[-1].label_seq
                 annotated_sequence = subchain.make_one_letter_sequence()
                 unannotated_sequence = sequence.get_chain_subsequence(parent_chain.name, start_id, end_id)[0]
-                unconfirmed = sequence.contains_unconfirmed_residues(parent_chain.name, start_id, end_id)
-                data.append((id, entity.name, subchain.subchain_id(), parent_chain.name, unconfirmed,
+                data.append((id, entity.name, subchain.subchain_id(), parent_chain.name,
                         unannotated_sequence, annotated_sequence, start_id, end_id, subchain.length()))
     return data
 
@@ -188,12 +187,11 @@ def insert_into_helix_table(struct: gemmi.Structure, doc: cif.Document, sequence
         end_auth_label = str(helix.end.res_id.seqid.num) + helix.end.res_id.seqid.icode
         start_id = chain[start_auth_label][0].label_seq
         end_id = end_chain[end_auth_label][0].label_seq
-        unconfirmed = sequence.contains_unconfirmed_residues(chain.name, start_id, end_id)
         if chain != end_chain:
             chain_names = chain.name + ' ' + end_chain.name
-            data.append((id, index + 1, chain_names, unconfirmed, helix_sequence, start_id, end_id, helix.length))
+            data.append((id, index + 1, chain_names, helix_sequence, start_id, end_id, helix.length))
         else:
-            data.append((id, index + 1, chain.name, unconfirmed, helix_sequence, start_id, end_id, helix.length))
+            data.append((id, index + 1, chain.name, helix_sequence, start_id, end_id, helix.length))
     return data
         
 def insert_into_sheet_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> SheetData:
@@ -215,8 +213,7 @@ def insert_into_strand_table(struct: gemmi.Structure, doc: cif.Document, sequenc
             end_auth_label = str(strand.end.res_id.seqid.num) + strand.end.res_id.seqid.icode
             start_id = chain[start_auth_label][0].label_seq
             end_id = end_chain[end_auth_label][0].label_seq
-            unconfirmed = sequence.contains_unconfirmed_residues(chain.name, start_id, end_id)
-            data.append((id, sheet.name, strand.name, chain.name, unconfirmed,
+            data.append((id, sheet.name, strand.name, chain.name,
                          strand_sequence, start_id, end_id, length))
     return data
 
