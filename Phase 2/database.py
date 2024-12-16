@@ -47,7 +47,7 @@ chain_table = Table("chains", chain_table_attributes, extract.insert_into_chain_
 
 subchain_table_attributes = Attributes[extract.SubchainData]\
     ([entry_id, ("entity_id", "VARCHAR(5) NOT NULL"), ("subchain_id", "VARCHAR(5) NOT NULL"), chain_id,
-      unconfirmed, ("subchain_sequence", "VARCHAR"), ("annotated_subchain_sequence", "VARCHAR"),
+      ("subchain_sequence", "VARCHAR"), ("annotated_subchain_sequence", "VARCHAR"),
       start_id, end_id, length],
       primary_keys=["entry_id", "subchain_id"],
       foreign_keys={"entry_id": ("main", "entry_id"), "entity_id": ("entities", "entity_id"),
@@ -55,7 +55,7 @@ subchain_table_attributes = Attributes[extract.SubchainData]\
 subchain_table = Table("subchains", subchain_table_attributes, extract.insert_into_subchain_table)
 
 helix_table_attributes = Attributes[extract.HelixData]\
-    ([entry_id, ("helix_id", "INT"), chain_id, unconfirmed, ("helix_sequence", "VARCHAR"),
+    ([entry_id, ("helix_id", "INT"), chain_id, ("helix_sequence", "VARCHAR"),
       start_id, end_id, length],
       primary_keys=["entry_id", "helix_id"],
       foreign_keys={"entry_id": ("main", "entry_id"), "chain_id": ("chains", "chain_id")})
@@ -68,7 +68,7 @@ sheet_table_attributes = Attributes[extract.SheetData]\
 sheet_table = Table("sheets", sheet_table_attributes, extract.insert_into_sheet_table)
 
 strand_table_attributes = Attributes[extract.StrandData]\
-    ([entry_id, sheet_id, ("strand_id", "VARCHAR(5) NOT NULL"), chain_id, unconfirmed,
+    ([entry_id, sheet_id, ("strand_id", "VARCHAR(5) NOT NULL"), chain_id,
       ("strand_sequence", "VARCHAR"), start_id, end_id, length],
       primary_keys=["entry_id", "sheet_id", "strand_id"],
       foreign_keys={"entry_id": ("main", "entry_id"), "sheet_id": ("sheets", "sheet_id"),
