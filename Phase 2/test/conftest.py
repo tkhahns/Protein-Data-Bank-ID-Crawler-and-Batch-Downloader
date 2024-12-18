@@ -4,7 +4,7 @@ import gemmi
 from gemmi import cif, EntityType, PolymerType, EntityList
 from sqlite3 import Cursor 
 
-from polymer_sequence import PolymerSequence
+from polymer_sequence import PolymerSequence, Monomer
 from extract import ComplexType
 from table import Table
 from attributes import Attributes
@@ -27,7 +27,30 @@ def mock_structure():
 @pytest.fixture
 def mock_doc():
     mock_doc = MagicMock(spec=cif.Document)
+    block = MagicMock()
+    mock_doc.sole_block.return_value = block
+
+    # Mocking the loops in the CIF block
+    block.find_loop.side_effect = lambda x: {
+        "_pdbx_poly_seq_scheme.pdb_strand_id": ["A", "A", "B", "B", "B"],
+        "_pdbx_poly_seq_scheme.entity_id": ["1", "1", "1", "1", "1"],
+        "_pdbx_poly_seq_scheme.seq_id": ["1", "2", "3", "3"],
+        "_pdbx_poly_seq_scheme.mon_id": ["ALA", "ARG", "ASN", "ASN"],
+        "_pdbx_poly_seq_scheme.pdb_mon_id": ["ALA", "?", "ASN", "ASN"],
+        "_pdbx_poly_seq_scheme.hetero": ["n", "n", "y", "y"]
+    }[x]
+
     return mock_doc
+
+
+@pytest.fixture
+def fake_sequence_3to1():
+    """Fixture to mock the sequence_3to1 function."""
+    def sequence_3to1(monomer_sequence):
+        mapping = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D'}
+        return "".join(mapping[monomer] for monomer in monomer_sequence)
+    return sequence_3to1
+
  
 @pytest.fixture
 def mock_entity():
@@ -159,19 +182,34 @@ def mock_empty_chain(mock_subchain, mock_empty_polymer):
 
 
 @pytest.fixture
-def mock_polymer_sequence():
+def test_polymer_sequence():
     mock_doc = MagicMock(spec=cif.Document)
-    mock_polymer_sequence = PolymerSequence(mock_doc)
+    test_polymer_sequence = PolymerSequence(mock_doc)
     
-    mock_polymer_sequence.one_letter_code = 'ARNDCQEGHIX'
+    test_polymer_sequence.one_letter_code = 'ARNDCQEGHIX'
 
-    mock_polymer_sequence.chain_start_indices = {'A': 0, 'B': 0}
-    mock_polymer_sequence.chain_end_indices = {'A': 10}
+    test_polymer_sequence.chain_start_indices = {'A': 0, 'B': 0}
+    test_polymer_sequence.chain_end_indices = {'A': 10}
+    
+    sequence = [Monomer('A', 1, 1, 'ALA', 'ALA', 'n'), Monomer('A', 1, 2, 'ARG', 'ARG', 'n'),
+                Monomer('A', 1, 3, 'ASN', 'ASN', 'n'), Monomer('A', 1, 4, 'ASP', 'ASP', 'n'),
+                Monomer('A', 1, 5, 'CYS', 'CYS', 'n'), Monomer('A', 1, 6, 'GLN', 'GLN', 'n'), 
+                Monomer('A', 1, 7, 'GLU', 'GLU', 'n'), Monomer('A', 1, 8, 'GLY', 'GLY', 'n'), 
+                Monomer('A', 1, 9, 'HIS', 'HIS', 'n'), Monomer('A', 1, 10, 'ILE', 'ILE', 'n'), 
+                Monomer('A', 1, 11, 'UNK', 'UNK', 'n')]
+    test_polymer_sequence.sequence = sequence
 
-    sequence = [(0, 0, 1), (0, 0, 3), (0, 0, 5), (0, 0, 7), (0, 0, 9)]
-    mock_polymer_sequence.sequence = sequence
+    return test_polymer_sequence
 
-    return mock_polymer_sequence
+
+@pytest.fixture
+def mock_span():
+    residues = []
+    for label_seq in range(1, 11):  # Generate residues with label_seq 1 to 10
+        mock_residue = MagicMock(spec=gemmi.Residue)
+        mock_residue.label_seq = label_seq
+        residues.append(mock_residue)
+    return residues
 
 
 @pytest.fixture

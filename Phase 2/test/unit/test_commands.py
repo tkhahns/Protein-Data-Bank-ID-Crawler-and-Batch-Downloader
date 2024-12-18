@@ -53,7 +53,8 @@ def test_init_database_empty_table_schemas(mock_cursor):
 
 def test_init_database_missing_create_table_method(mock_cursor, mock_table):
     """
-    Test that an attribute error 
+    Test that an attribute error is raised if the create_table
+    method is missing.
     """
     del mock_table.create_table  # delete create_table method
 

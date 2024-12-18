@@ -250,7 +250,7 @@ def insert_into_coil_table(struct: gemmi.Structure, doc: cif.Document, sequence:
             left = min(start_id, end_id)
             right = max(start_id, end_id)
             if chain != end_chain:
-                print('Strand ' + strand.name + 'in sheet ' + sheet.name + ' in protein ' + id\
+                print('Strand ' + strand.name + ' in sheet ' + sheet.name + ' in protein ' + id\
                                 + ' is ill-defined. Unable to extract random coils.')
                 return data
             else:
