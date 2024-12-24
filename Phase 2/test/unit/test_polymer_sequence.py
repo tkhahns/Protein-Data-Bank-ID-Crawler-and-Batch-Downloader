@@ -10,7 +10,6 @@ Output verbosity can be adjusted by using the relevant flags in the command (e.g
 import pytest
 from unittest.mock import patch, MagicMock
 import gemmi 
-from gemmi import cif
 
 from polymer_sequence import PolymerSequence, Monomer, letter_code_3to1, sequence_3to1, binary_search
 

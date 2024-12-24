@@ -12,7 +12,7 @@ from attributes import Attributes
 @pytest.fixture
 def mock_structure():
     mock_structure = MagicMock(spec=gemmi.Structure)
-    mock_structure.info = {'_entry.id': '1A00', '_struct.title': 'mock_title', '_cell.Z_PDB': '1'}
+    mock_structure.info = {"_entry.id": "1A00", "_struct.title": "mock_title", "_cell.Z_PDB": "1"}
     mock_structure.name = "mock_name"
 
     cell = MagicMock(spec=gemmi.UnitCell)
@@ -20,7 +20,7 @@ def mock_structure():
     cell.alpha, cell.beta, cell.gamma = (90.0, 90.0, 90.0)
     mock_structure.cell = cell
 
-    mock_structure.spacegroup_hm = 'P 1'
+    mock_structure.spacegroup_hm = "P 1"
 
     return mock_structure
 
@@ -47,7 +47,7 @@ def mock_doc():
 def fake_sequence_3to1():
     """Fixture to mock the sequence_3to1 function."""
     def sequence_3to1(monomer_sequence):
-        mapping = {'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D'}
+        mapping = {"ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D"}
         return "".join(mapping[monomer] for monomer in monomer_sequence)
     return sequence_3to1
 
@@ -129,7 +129,7 @@ def mock_entities(mock_entity):
 def mock_subchain():
     mock_subchain = MagicMock(spec=gemmi.ResidueSpan)
     mock_subchain.subchain_id.return_value = 'A'
-    mock_subchain.make_one_letter_sequence.return_value = 'ARNDCQEGHIX'
+    mock_subchain.make_one_letter_sequence.return_value = "ARNDCQEGHIX"
     mock_subchain.length.return_value = 11
 
     return mock_subchain
@@ -141,7 +141,7 @@ def mock_polymer():
 
     # set up return value for len(mock_polymer)
     mock_polymer.__len__.return_value = 11 
-    mock_polymer.make_one_letter_sequence.return_value = 'ARNDCQEGHIX'
+    mock_polymer.make_one_letter_sequence.return_value = "ARNDCQEGHIX"
     mock_polymer.length.return_value = 11
 
     return mock_polymer
@@ -153,7 +153,7 @@ def mock_empty_polymer():
 
     # set up return value for len(mock_polymer)
     mock_polymer.__len__.return_value = 0
-    mock_polymer.make_one_letter_sequence.return_value = ''  
+    mock_polymer.make_one_letter_sequence.return_value = ""
     mock_polymer.length.return_value = 0  
 
     return mock_polymer
@@ -186,17 +186,17 @@ def test_polymer_sequence():
     mock_doc = MagicMock(spec=cif.Document)
     test_polymer_sequence = PolymerSequence(mock_doc)
     
-    test_polymer_sequence.one_letter_code = 'ARNDCQEGHIX'
+    test_polymer_sequence.one_letter_code = "ARNDCQEGHIX"
 
     test_polymer_sequence.chain_start_indices = {'A': 0, 'B': 0}
     test_polymer_sequence.chain_end_indices = {'A': 10}
     
-    sequence = [Monomer('A', 1, 1, 'ALA', 'ALA', 'n'), Monomer('A', 1, 2, 'ARG', 'ARG', 'n'),
-                Monomer('A', 1, 3, 'ASN', 'ASN', 'n'), Monomer('A', 1, 4, 'ASP', 'ASP', 'n'),
-                Monomer('A', 1, 5, 'CYS', 'CYS', 'n'), Monomer('A', 1, 6, 'GLN', 'GLN', 'n'), 
-                Monomer('A', 1, 7, 'GLU', 'GLU', 'n'), Monomer('A', 1, 8, 'GLY', 'GLY', 'n'), 
-                Monomer('A', 1, 9, 'HIS', 'HIS', 'n'), Monomer('A', 1, 10, 'ILE', 'ILE', 'n'), 
-                Monomer('A', 1, 11, 'UNK', 'UNK', 'n')]
+    sequence = [Monomer("A", 1, 1, "ALA", "ALA", "n"), Monomer("A", 1, 2, "ARG", "ARG", "n"),
+                Monomer("A", 1, 3, "ASN", "ASN", "n"), Monomer("A", 1, 4, "ASP", "ASP", "n"),
+                Monomer("A", 1, 5, "CYS", "CYS", "n"), Monomer("A", 1, 6, "GLN", "GLN", "n"), 
+                Monomer("A", 1, 7, "GLU", "GLU", "n"), Monomer("A", 1, 8, "GLY", "GLY", "n"), 
+                Monomer("A", 1, 9, "HIS", "HIS", "n"), Monomer("A", 1, 10, "ILE", "ILE", "n"), 
+                Monomer("A", 1, 11, "UNK", "UNK", "n")]
     test_polymer_sequence.sequence = sequence
 
     return test_polymer_sequence
@@ -262,14 +262,34 @@ def mock_cursor():
 
 
 @pytest.fixture
+def mock_table_schemas(mock_table, mock_coil_table):
+    mock_table_schemas = [mock_table, mock_coil_table]
+    return mock_table_schemas
+
+
+@pytest.fixture
 def mock_table():
-    TEST_DATA = ('1A00', 'data1', 'data2')
-    TEST_STATEMENT = "INSERT INTO main VALUES(?, ?, ?)"
+    test_data = ("1A00", "data1", "data2")
+    test_statement = "INSERT INTO main VALUES(?, ?, ?)"
 
     mock_table = MagicMock(spec=Table)
     mock_table.name = "main"
-    mock_table.extract_data.return_value = [TEST_DATA]
-    mock_table.insert_row.return_value = TEST_STATEMENT 
+    mock_table.extract_data.return_value = [test_data]
+    mock_table.insert_row.return_value = test_statement 
+
+    return mock_table
+
+
+@pytest.fixture
+def mock_coil_table():
+    test_data_1 = ("1A00", "data1", "data2")
+    test_data_2 = ("1A00", "data3", "data4")
+    test_statement = "INSERT INTO coils VALUES(?, ?, ?)"
+
+    mock_table = MagicMock(spec=Table)
+    mock_table.name = "coils"
+    mock_table.extract_data.return_value = [test_data_1, test_data_2]
+    mock_table.insert_row.return_value = test_statement 
 
     return mock_table
 
@@ -277,9 +297,8 @@ def mock_table():
 @pytest.fixture
 def test_table():
     mock_attributes = MagicMock()
-    mock_attributes.__str__.return_value = "(id VARCHAR, a FLOAT,\
-        PRIMARY KEY(id, a), FOREIGN KEY (id) REFERENCES\
-                main(id))"
+    mock_attributes.attribute_names = ("id", "a")
+    mock_attributes.__str__.return_value = "(id VARCHAR, a FLOAT, PRIMARY KEY (id, a), FOREIGN KEY (id) REFERENCES main(id))"
     mock_attributes.match_columns.return_value = "col1 = value1, col2 = value2"
     mock_attributes.match_primary_keys.return_value = "id = 1"
 

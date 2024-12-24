@@ -9,7 +9,6 @@ Output verbosity can be adjusted by using the relevant flags in the command (e.g
 
 import pytest
 from unittest.mock import patch, call, MagicMock, PropertyMock
-import gemmi
 from sqlite3 import OperationalError
 
 import database
