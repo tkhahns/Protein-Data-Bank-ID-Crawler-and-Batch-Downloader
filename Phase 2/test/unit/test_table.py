@@ -41,10 +41,10 @@ def test_attributes_string_empty_attributes(test_table):
 
 
 def test_create_table(test_table):
-    expected = "CREATE TABLE IF NOT EXISTS test_table (id VARCHAR, a FLOAT, PRIMARY KEY (id, a), FOREIGN KEY (id) REFERENCES main(id))"
+    expected = "CREATE TABLE IF NOT EXISTS test_table (id VARCHAR, a FLOAT, PRIMARY KEY (id, a), FOREIGN KEY (id) REFERENCES main (id))"
     result = test_table.create_table()
 
-    assert result == expected, f"Result: {result}, expected: {expected}"
+    assert result == expected
 
 def test_retrieve_default_columns(test_table):
     expected = "SELECT * FROM test_table"
@@ -100,7 +100,7 @@ def test_update_row(test_table):
     test_table.attributes.match_columns.assert_called_once_with(test_data, ', ')
     test_table.attributes.match_primary_keys.assert_called_once_with(test_primary_key_values)
 
-def test_update_row_invalid_data(test_table):
+def test_update_row_invalid_columns(test_table):
     """
     Test that a ValueError is raised if match_primary_keys method raises a ValueError. 
     """
