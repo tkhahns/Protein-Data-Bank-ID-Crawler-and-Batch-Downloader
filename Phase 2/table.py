@@ -14,7 +14,7 @@ class Table(Generic[*AttributeTypes]):
         self.extractor = extractor
 
     def attributes_string(self) -> str:
-        return f"({','.join(self.attributes.attribute_names)})"
+        return f"({', '.join(self.attributes.attribute_names)})"
 
     def create_table(self) -> str:
         return f"CREATE TABLE IF NOT EXISTS {self.name} {str(self.attributes)}"
@@ -30,5 +30,5 @@ class Table(Generic[*AttributeTypes]):
         return f"INSERT INTO {self.name} VALUES({args})"
     
     def update_row(self, data: dict, primary_key_values):
-        return f"UPDATE {self.name} SET {self.attributes.match_columns(data), ', '}\
+        return f"UPDATE {self.name} SET {self.attributes.match_columns(data,', ')}\
             WHERE {self.attributes.match_primary_keys(primary_key_values)}"

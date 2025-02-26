@@ -298,7 +298,7 @@ def mock_coil_table():
 def test_table():
     mock_attributes = MagicMock()
     mock_attributes.attribute_names = ("id", "a")
-    mock_attributes.__str__.return_value = "(id VARCHAR, a FLOAT, PRIMARY KEY (id, a), FOREIGN KEY (id) REFERENCES main(id))"
+    mock_attributes.__str__.return_value = "(id VARCHAR, a FLOAT, PRIMARY KEY (id, a), FOREIGN KEY (id) REFERENCES main (id))"
     mock_attributes.match_columns.return_value = "col1 = value1, col2 = value2"
     mock_attributes.match_primary_keys.return_value = "id = 1"
 

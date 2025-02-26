@@ -12,6 +12,7 @@ def check_file(cur: sqlite3.Cursor, file_path: str, verbose: bool = True):
     try:
         if verbose:
             print("Checking " + file_path)
+        struct = None
         struct = gemmi.read_structure(file_path)
         doc = cif.read(file_path)
         sequence = PolymerSequence(doc)
@@ -47,8 +48,12 @@ def check_file(cur: sqlite3.Cursor, file_path: str, verbose: bool = True):
                     update_file(cur, struct, doc, sequence)
 
     except Exception as error:
-        print(struct.name)
-        print(error)
+        if struct is not None:  
+            print(struct.name)
+            print(error)
+        else:
+            print(error)
+            
 
 def insert_file(cur: sqlite3.Cursor, struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence):
     for table_scheme in table_schemas:
