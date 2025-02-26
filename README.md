@@ -2,6 +2,10 @@
 
  Project commissioned by Dr Wenqian Chen from the Department of Pharmacy and Pharmaceutical Sciences at the National University of Singapore as part of a lab assistant internship. The purpose of this project is to write tools to assist with managing and analysing all protein mmCIF files from the RCSB Protein Data Bank (PDB). The project runs in 3 phases. Phase 1 is to develop a protocol for downloading and keeping and up-to-date copy of all the mmCIF protein files from PDB. Phase 2 is to extract all the relevant information from the mmCIF files. Phase 3 is to analyse all the relevant information.
 
+## Dependencies
+
+This code was ran on with the Gemmi Python module (version 0.6.5).
+
 ## Phase 1
 
  Previously, I used the PDB api and a batch download script to retrieve all the protein names and download their files. This has now been superseded by using `rsync` as recommended by PDB themselves, as it provides a simple interface for downloading and maintaining a local copy of their database. Instructions for using `rsync` with the database can be found [here](https://www.wwpdb.org/ftp/pdb-ftp-sites) The old phase 1 files are still here for archival purposes.
