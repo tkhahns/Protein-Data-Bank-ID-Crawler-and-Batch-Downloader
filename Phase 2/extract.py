@@ -23,7 +23,7 @@ from enum import Enum
 MainData = NewType("MainData", tuple[str, str, str, str, str, str, str, int, float, float, float, float, float, float])
 ExperimentalData = NewType("ExperimentalData", tuple[float, float, str, str, str, str, float, float])
 EntityData = NewType("EntityData", tuple[str, str, str, str, str, str])
-ChainData = NewType("ChainData", tuple[str, str, str, int, str, str, int, int, int])
+ChainData = NewType("ChainData", tuple[str, str, str, int, str, str, int, int, int, int])
 SubchainData = NewType("SubchainData", tuple[str, str, str, int, str, str, int, int, int])
 HelixData = NewType("HelixData", tuple[str, str, int, str, int, int, int])
 SheetData = NewType("SheetData", tuple[str, str, int, str])
@@ -172,8 +172,11 @@ def insert_into_chain_table(struct: gemmi.Structure, doc: cif.Document, sequence
         subchains = ' '.join([subchain.subchain_id() for subchain in chain.subchains()])
         annotated_sequence = chain.get_polymer().make_one_letter_sequence()
         unannotated_sequence = sequence.get_chain_sequence(chain.name)
+        author_start_id = chain.get_polymer()[0].seqid.num if len(chain.get_polymer()) > 0 else None
+        author_end_id = chain.get_polymer()[-1].seqid.num if len(chain.get_polymer()) > 0 else None
         data.append((id, chain.name, subchains, unconfirmed,
-                unannotated_sequence, annotated_sequence, start_id, end_id, chain.get_polymer().length()))
+                unannotated_sequence, annotated_sequence, start_id, end_id,
+                chain.get_polymer().length(), author_start_id, author_end_id))
     return data
         
 def insert_into_helix_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> HelixData:

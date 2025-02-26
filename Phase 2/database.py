@@ -40,7 +40,7 @@ entity_table = Table("entities", entity_table_attributes, extract.insert_into_en
 
 chain_table_attributes = Attributes[extract.ChainData]\
     ([entry_id, chain_id, ("subchains", "VARCHAR"), unconfirmed, ("chain_sequence", "VARCHAR"),
-      ("annotated_chain_sequence", "VARCHAR"), start_id, end_id, length],
+      ("annotated_chain_sequence", "VARCHAR"), start_id, end_id, length, ("author_start_id", "INT"), ("author_end_id", "INT")],
       primary_keys=["entry_id", "chain_id"],
       foreign_keys={"entry_id": ("main", "entry_id")})
 chain_table = Table("chains", chain_table_attributes, extract.insert_into_chain_table)

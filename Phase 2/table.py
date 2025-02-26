@@ -14,7 +14,7 @@ class Table(Generic[*AttributeTypes]):
         self.extractor = extractor
 
     def attributes_string(self) -> str:
-        return f"({','.join(self.attributes)})"
+        return f"({','.join(self.attributes.attribute_names)})"
 
     def create_table(self) -> str:
         return f"CREATE TABLE IF NOT EXISTS {self.name} {str(self.attributes)}"

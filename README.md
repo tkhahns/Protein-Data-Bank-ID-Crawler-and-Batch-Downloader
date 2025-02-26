@@ -27,7 +27,7 @@
  | main         | **entry_id**, complex_type, source_organism, chains, revision_date, space_group, Z_value, a, b, c, alpha, beta, gamma |
  | experimental | ***entry_id***, Matthews_coefficient, percent_solvent_content, crystal_growth_method, crystal_growth_procedure, crystal_growth_apparatus, crystal_growth_atmosphere, crystal_growth_pH, crystal_growth,temperature |
  | entities     | ***entry_id***, **entity_id**, entity_name, entity_type, polymer_type, subchains |
- | chains       | ***entry_id***, **chain_id**, subchains, contains_experimentally_unconfirmed_residues, chain_sequence, start_id, end_id, length |
+ | chains       | ***entry_id***, **chain_id**, subchains, contains_experimentally_unconfirmed_residues, chain_sequence, start_id, end_id, length, author_start_id, author_end_id |
  | subchains    | ***entry_id***, *entity_id*, **subchain_id**, *chain_id*, contains_experimentally_unconfirmed_residues, subchain_sequence, start_id, end_id, length |
  | helices      | ***entry_id***, **helix_id**, *chain_id*, contains_experimentally_unconfirmed_residues, helix_sequence, start_id, end_id, length |
  | sheets       | ***entry_id***, **sheet_id**, number_strands, sense_sequence |
