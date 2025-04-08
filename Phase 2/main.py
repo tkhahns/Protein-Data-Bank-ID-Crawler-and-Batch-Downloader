@@ -4,7 +4,7 @@ import re
 import commands
 from tqdm import tqdm
 sql_database = "./Phase 2/records/pdb_database_records.db" # Location of output SQL database
-rootdir = "./Phase 2/database" # Root directory of all the pdb files
+rootdir = "./mmCIF/mmCIF" # Root directory of all the pdb files
 verbose = False
 
 if __name__ == "__main__":

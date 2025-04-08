@@ -6,3 +6,6 @@ database
 Format_v33_A4.pdf
 *.cif*
 lib
+records
+__pycache__
+*.txt

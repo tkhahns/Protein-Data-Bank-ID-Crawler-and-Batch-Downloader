@@ -192,9 +192,35 @@ def insert_into_helix_table(struct: gemmi.Structure, doc: cif.Document, sequence
         end_id = end_chain[end_auth_label][0].label_seq
         if chain != end_chain:
             chain_names = chain.name + ' ' + end_chain.name
-            data.append((id, index + 1, chain_names, helix_sequence, start_id, end_id, helix.length))
+            data.append((id, index + 1, chain_names, helix_sequence, helix.type, start_id, end_id, helix.length))
         else:
-            data.append((id, index + 1, chain.name, helix_sequence, start_id, end_id, helix.length))
+            data.append((id, index + 1, chain.name, helix_sequence, helix.type, start_id, end_id, helix.length))
+    return data
+
+def insert_into_secondary_structures_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> list:
+    """
+    Extracts secondary structures (based on helices) from the structure and returns a list of tuples.
+    Each tuple contains:
+      entry_id, helix_id, chain_id, helix_sequence, helix_type, start_id, end_id, length
+    The primary key is a combination of entry_id and helix_id.
+    Foreign keys:
+      entry_id references main.entry_id,
+      chain_id references chains.chain_id,
+      helix_id references helices.helix_id.
+    """
+    data = []
+    entry_id = struct.info["_entry.id"]
+    for index, helix in enumerate(struct.helices):
+        helix_sequence = sequence.get_helix_sequence(helix, struct)
+        chain = struct[0].find_cra(helix.start).chain
+        end_chain = struct[0].find_cra(helix.end).chain
+        start_auth_label = str(helix.start.res_id.seqid.num) + helix.start.res_id.seqid.icode
+        end_auth_label = str(helix.end.res_id.seqid.num) + helix.end.res_id.seqid.icode
+        start_id = chain[start_auth_label][0].label_seq
+        end_id = end_chain[end_auth_label][0].label_seq
+        # If the helix spans different chains, concatenate the names for reference.
+        chain_id = chain.name if chain == end_chain else f"{chain.name} {end_chain.name}"
+        data.append((entry_id, index + 1, chain_id, helix_sequence, helix.type, start_id, end_id, helix.length))
     return data
         
 def insert_into_sheet_table(struct: gemmi.Structure, doc: cif.Document, sequence: PolymerSequence) -> SheetData:

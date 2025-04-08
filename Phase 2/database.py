@@ -55,7 +55,7 @@ subchain_table_attributes = Attributes[extract.SubchainData]\
 subchain_table = Table("subchains", subchain_table_attributes, extract.insert_into_subchain_table)
 
 helix_table_attributes = Attributes[extract.HelixData]\
-    ([entry_id, ("helix_id", "INT"), chain_id, ("helix_sequence", "VARCHAR"),
+    ([entry_id, ("helix_id", "INT"), chain_id, ("helix_sequence", "VARCHAR"), ("helix_type", "VARCHAR"),
       start_id, end_id, length],
       primary_keys=["entry_id", "helix_id"],
       foreign_keys={"entry_id": ("main", "entry_id"), "chain_id": ("chains", "chain_id")})
@@ -82,8 +82,31 @@ coil_table_attributes = Attributes[extract.CoilData]\
       foreign_keys={"entry_id": ("main", "entry_id"), "chain_id": ("chains", "chain_id")})
 coil_table = Table("coils", coil_table_attributes, extract.insert_into_coil_table)
 
+# Define secondary_structures table attributes
+secondary_structures_table_attributes = Attributes[extract.HelixData]\
+    ([entry_id,
+      ("helix_id", "INT"),
+      chain_id,
+      ("helix_sequence", "VARCHAR"),
+      ("helix_type", "VARCHAR"),
+      start_id,
+      end_id,
+      length],
+     primary_keys=["entry_id", "helix_id"],
+     foreign_keys={
+         "entry_id": ("main", "entry_id"),
+         "chain_id": ("chains", "chain_id"),
+         "helix_id": ("helices", "helix_id")
+     })
+
+# Create the secondary_structures table using the new attributes and an insert function in extract module.
+secondary_structures_table = Table("secondary_structures",
+                                   secondary_structures_table_attributes,
+                                   extract.insert_into_secondary_structures_table)
+
 table_schemas: list[Table] = [main_table, experimental_table, entity_table, chain_table,
-                              subchain_table, helix_table, sheet_table, strand_table, coil_table]
+                              subchain_table, helix_table, sheet_table, strand_table, coil_table,
+                              secondary_structures_table]
 
 def insert_into_table(cur: sqlite3.Cursor, table_name: str, data):
     """
