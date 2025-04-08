@@ -82,21 +82,21 @@ coil_table_attributes = Attributes[extract.CoilData]\
       foreign_keys={"entry_id": ("main", "entry_id"), "chain_id": ("chains", "chain_id")})
 coil_table = Table("coils", coil_table_attributes, extract.insert_into_coil_table)
 
-# Define secondary_structures table attributes
+# Define secondary_structures table attributes with updated foreign key column names
 secondary_structures_table_attributes = Attributes[extract.HelixData]\
-    ([entry_id,
-      ("helix_id", "INT"),
-      chain_id,
+    ([("entry_id_dssp", "VARCHAR(5) NOT NULL"),
+      ("helix_id_dssp", "INT"),
+      ("chain_id_dssp", "VARCHAR(5) NOT NULL"),
       ("helix_sequence", "VARCHAR"),
       ("helix_type", "VARCHAR"),
       start_id,
       end_id,
       length],
-     primary_keys=["entry_id", "helix_id"],
+     primary_keys=["entry_id_dssp", "helix_id_dssp"],
      foreign_keys={
-         "entry_id": ("main", "entry_id"),
-         "chain_id": ("chains", "chain_id"),
-         "helix_id": ("helices", "helix_id")
+         "entry_id_dssp": ("main", "entry_id"),
+         "chain_id_dssp": ("chains", "chain_id"),
+         "helix_id_dssp": ("helices", "helix_id")
      })
 
 # Create the secondary_structures table using the new attributes and an insert function in extract module.
